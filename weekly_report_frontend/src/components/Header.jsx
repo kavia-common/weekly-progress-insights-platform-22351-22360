@@ -19,16 +19,7 @@ const Header = () => {
         <span className="helper">Ocean Professional</span>
         {authDisabled && (
           <span
-            className="helper"
-            style={{
-              marginLeft: 8,
-              padding: '2px 8px',
-              borderRadius: 999,
-              border: '1px solid rgba(245, 158, 11, 0.4)',
-              background: 'rgba(245, 158, 11, 0.12)',
-              color: '#92400E',
-              fontWeight: 600,
-            }}
+            className="test-mode-pill"
             aria-label="Test Mode active"
             title="Authentication is disabled for local testing"
           >

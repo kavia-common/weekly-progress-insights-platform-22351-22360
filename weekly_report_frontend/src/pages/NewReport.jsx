@@ -3,6 +3,8 @@ import { getSupabaseConfigStatus } from '../lib/supabaseClient';
 import ConfigWarning from '../components/ConfigWarning';
 import { useAuth } from '../context/AuthContext';
 import { createWeeklyReport } from '../services/reportsService';
+import { useToast } from '../components/ToastProvider';
+import { cn } from '../utils/cn';
 
 /**
  * PUBLIC_INTERFACE
@@ -14,13 +16,15 @@ const NewReport = () => {
   const [nextPlan, setNextPlan] = React.useState('');
   const [weekStart, setWeekStart] = React.useState('');
   const [tagsInput, setTagsInput] = React.useState('');
+
   const [status, setStatus] = React.useState(null);
-  const [errorMsg, setErrorMsg] = React.useState(null);
-  const [successMsg, setSuccessMsg] = React.useState(null);
   const [submitting, setSubmitting] = React.useState(false);
+
+  const [errors, setErrors] = React.useState({}); // { fieldName: 'message' }
 
   const { isConfigured } = getSupabaseConfigStatus();
   const { user, loading: authLoading } = useAuth();
+  const { addToast } = useToast();
 
   // Compute Monday of current week as default week_start
   React.useEffect(() => {
@@ -34,31 +38,41 @@ const NewReport = () => {
   }, []);
 
   const validate = () => {
-    if (!accomplishments.trim()) {
-      setErrorMsg('Please enter your accomplishments/progress.');
-      return false;
-    }
-    if (!nextPlan.trim()) {
-      setErrorMsg('Please enter your plan for next week.');
-      return false;
-    }
+    const nextErrors = {};
+    const minLen = 10;
+
     if (!weekStart) {
-      setErrorMsg('Please select the start date for the week.');
-      return false;
+      nextErrors.weekStart = 'Please select the start date for the week.';
     }
-    setErrorMsg(null);
-    return true;
+    const acc = accomplishments.trim();
+    if (!acc) {
+      nextErrors.accomplishments = 'Please enter your accomplishments/progress.';
+    } else if (acc.length < minLen) {
+      nextErrors.accomplishments = `Please provide at least ${minLen} characters.`;
+    }
+
+    const plan = nextPlan.trim();
+    if (!plan) {
+      nextErrors.nextPlan = 'Please enter your plan for next week.';
+    } else if (plan.length < minLen) {
+      nextErrors.nextPlan = `Please provide at least ${minLen} characters.`;
+    }
+
+    setErrors(nextErrors);
+    return Object.keys(nextErrors).length === 0;
   };
 
   const onSubmit = async (e) => {
     e.preventDefault();
-    setSuccessMsg(null);
     setStatus(null);
 
-    if (!validate()) return;
+    if (!validate()) {
+      addToast('error', 'Please fix the errors in the form.');
+      return;
+    }
 
     if (!isConfigured) {
-      setErrorMsg('Supabase is not configured. Set REACT_APP_SUPABASE_URL and REACT_APP_SUPABASE_KEY.');
+      addToast('error', 'Supabase is not configured. Set REACT_APP_SUPABASE_URL and REACT_APP_SUPABASE_KEY.');
       return;
     }
 
@@ -68,7 +82,7 @@ const NewReport = () => {
     }
 
     if (!user) {
-      setErrorMsg('You must be signed in to submit a report.');
+      addToast('error', 'You must be signed in to submit a report.');
       return;
     }
 
@@ -84,24 +98,22 @@ const NewReport = () => {
         user_id: user.id,
       });
 
-      setSuccessMsg('Report submitted successfully.');
       setStatus(null);
       // Reset fields except week start
       setAccomplishments('');
       setBlockers('');
       setNextPlan('');
       setTagsInput('');
+      setErrors({});
 
-      // Auto-clear success message
-      setTimeout(() => setSuccessMsg(null), 3000);
+      addToast('success', 'Report submitted successfully.');
 
-      // Optionally log or use the inserted row
       // eslint-disable-next-line no-console
       console.log('Inserted report:', inserted);
     } catch (err) {
       // eslint-disable-next-line no-console
       console.error(err);
-      setErrorMsg(err?.message || 'Failed to submit report.');
+      addToast('error', err?.message || 'Failed to submit report.');
       setStatus(null);
     } finally {
       setSubmitting(false);
@@ -121,31 +133,46 @@ const NewReport = () => {
         <ConfigWarning message="You are not signed in. Please sign in to submit a report." />
       )}
 
-      <form onSubmit={onSubmit} className="form-grid">
+      <form onSubmit={onSubmit} className="form-grid" noValidate>
         <div className="form-group">
           <label htmlFor="weekStart">Week Start</label>
           <input
             id="weekStart"
             type="date"
-            className="textarea"
+            className={cn('textarea', { invalid: Boolean(errors.weekStart) })}
             style={{ minHeight: 'auto' }}
             value={weekStart}
             onChange={(e) => setWeekStart(e.target.value)}
+            aria-invalid={Boolean(errors.weekStart)}
+            aria-describedby={errors.weekStart ? 'weekStart-error' : undefined}
             required
           />
           <div className="helper">Choose the Monday of the reporting week.</div>
+          {errors.weekStart && (
+            <div id="weekStart-error" className="field-error" role="alert">
+              {errors.weekStart}
+            </div>
+          )}
         </div>
 
         <div className="form-group">
           <label htmlFor="accomplishments">Accomplishments</label>
           <textarea
             id="accomplishments"
-            className="textarea"
+            className={cn('textarea', { invalid: Boolean(errors.accomplishments) })}
             placeholder="What did you achieve this week?"
             value={accomplishments}
             onChange={(e) => setAccomplishments(e.target.value)}
+            aria-invalid={Boolean(errors.accomplishments)}
+            aria-describedby={errors.accomplishments ? 'accomplishments-error' : undefined}
+            minLength={10}
             required
           />
+          {errors.accomplishments && (
+            <div id="accomplishments-error" className="field-error" role="alert">
+              {errors.accomplishments}
+            </div>
+          )}
         </div>
 
         <div className="form-group">
@@ -163,12 +190,20 @@ const NewReport = () => {
           <label htmlFor="nextPlan">Next Week Plan</label>
           <textarea
             id="nextPlan"
-            className="textarea"
+            className={cn('textarea', { invalid: Boolean(errors.nextPlan) })}
             placeholder="What will you focus on next week?"
             value={nextPlan}
             onChange={(e) => setNextPlan(e.target.value)}
+            aria-invalid={Boolean(errors.nextPlan)}
+            aria-describedby={errors.nextPlan ? 'nextPlan-error' : undefined}
+            minLength={10}
             required
           />
+          {errors.nextPlan && (
+            <div id="nextPlan-error" className="field-error" role="alert">
+              {errors.nextPlan}
+            </div>
+          )}
         </div>
 
         <div className="form-group">
@@ -185,12 +220,15 @@ const NewReport = () => {
         </div>
 
         <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-          <button className="btn" type="submit" disabled={submitting || !isConfigured || !user}>
+          <button
+            className="btn"
+            type="submit"
+            disabled={submitting || !isConfigured || !user}
+            aria-busy={submitting ? 'true' : 'false'}
+          >
             {submitting ? 'Submitting...' : 'Submit Report'}
           </button>
           {status && <span className="helper">{status}</span>}
-          {successMsg && <span className="helper" style={{ color: 'var(--secondary)' }}>{successMsg}</span>}
-          {errorMsg && <span className="helper" style={{ color: 'var(--error)' }}>{errorMsg}</span>}
         </div>
       </form>
     </div>

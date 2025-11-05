@@ -11,6 +11,7 @@ import ProtectedRoute from './components/ProtectedRoute';
 import { AuthProvider } from './context/AuthContext';
 import ConfigWarning from './components/ConfigWarning';
 import { isAuthDisabled } from './lib/featureFlags';
+import { ToastProvider } from './components/ToastProvider';
 
 // PUBLIC_INTERFACE
 function App() {
@@ -25,22 +26,24 @@ function App() {
   return (
     <Router>
       <AuthProvider>
-        <Layout>
-          {authDisabled && (
-            <div style={{ marginBottom: 12 }}>
-              <ConfigWarning message="Auth disabled for local testing. Routes are accessible without sign-in." />
-            </div>
-          )}
-          <Routes>
-            <Route path="/" element={<Navigate to="/reports/new" replace />} />
-            <Route path="/reports/new" element={maybeProtect(<NewReport />)} />
-            <Route path="/reports/history" element={maybeProtect(<History />)} />
-            <Route path="/team" element={maybeProtect(<TeamDashboard />)} />
-            <Route path="/admin" element={maybeProtect(<Admin />)} />
-            <Route path="/login" element={<Login />} />
-            <Route path="*" element={<Navigate to="/reports/new" replace />} />
-          </Routes>
-        </Layout>
+        <ToastProvider>
+          <Layout>
+            {authDisabled && (
+              <div className="test-mode-banner" role="status" aria-live="polite">
+                <ConfigWarning message="Auth disabled for local testing. Routes are accessible without sign-in." />
+              </div>
+            )}
+            <Routes>
+              <Route path="/" element={<Navigate to="/reports/new" replace />} />
+              <Route path="/reports/new" element={maybeProtect(<NewReport />)} />
+              <Route path="/reports/history" element={maybeProtect(<History />)} />
+              <Route path="/team" element={maybeProtect(<TeamDashboard />)} />
+              <Route path="/admin" element={maybeProtect(<Admin />)} />
+              <Route path="/login" element={<Login />} />
+              <Route path="*" element={<Navigate to="/reports/new" replace />} />
+            </Routes>
+          </Layout>
+        </ToastProvider>
       </AuthProvider>
     </Router>
   );
