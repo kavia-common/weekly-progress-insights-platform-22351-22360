@@ -5,10 +5,13 @@ import { useAuth } from '../context/AuthContext';
 import { createWeeklyReport } from '../services/reportsService';
 import { useToast } from '../components/ToastProvider';
 import { cn } from '../utils/cn';
+import { isAuthDisabled } from '../lib/featureFlags';
 
 /**
  * PUBLIC_INTERFACE
  * NewReport renders the weekly report submission form and persists data to Supabase.
+ * In Test Mode (REACT_APP_DISABLE_AUTH=true), the form allows submissions without requiring an authenticated session.
+ * If RLS prevents inserts without a user, the app surfaces a clear guidance message via toast.
  */
 const NewReport = () => {
   const [accomplishments, setAccomplishments] = React.useState('');
@@ -25,6 +28,7 @@ const NewReport = () => {
   const { isConfigured } = getSupabaseConfigStatus();
   const { user, loading: authLoading } = useAuth();
   const { addToast } = useToast();
+  const authDisabled = isAuthDisabled();
 
   // Compute Monday of current week as default week_start
   React.useEffect(() => {
@@ -36,6 +40,13 @@ const NewReport = () => {
     const iso = monday.toISOString().slice(0, 10);
     setWeekStart(iso);
   }, []);
+
+  const hasRequiredContent = React.useCallback(() => {
+    const minLen = 10;
+    const acc = accomplishments.trim();
+    const plan = nextPlan.trim();
+    return Boolean(weekStart && acc && plan && acc.length >= minLen && plan.length >= minLen);
+  }, [weekStart, accomplishments, nextPlan]);
 
   const validate = () => {
     const nextErrors = {};
@@ -76,12 +87,13 @@ const NewReport = () => {
       return;
     }
 
-    if (authLoading) {
+    // If auth is enabled, respect loading state; otherwise bypass session checks
+    if (!authDisabled && authLoading) {
       setStatus('Checking session...');
       return;
     }
 
-    if (!user) {
+    if (!authDisabled && !user) {
       addToast('error', 'You must be signed in to submit a report.');
       return;
     }
@@ -95,7 +107,8 @@ const NewReport = () => {
         plans: nextPlan.trim(),
         week_start: weekStart, // 'YYYY-MM-DD'
         tags: tagsInput,
-        user_id: user.id,
+        // In Test Mode allow user_id to be null/undefined; the service will handle RLS errors gracefully
+        user_id: user?.id || null,
       });
 
       setStatus(null);
@@ -120,6 +133,12 @@ const NewReport = () => {
     }
   };
 
+  const disableSubmit =
+    submitting ||
+    !isConfigured ||
+    (!authDisabled && !user) ||
+    (authDisabled && !hasRequiredContent());
+
   return (
     <div className="card" aria-live="polite">
       <div className="page-title">
@@ -129,7 +148,15 @@ const NewReport = () => {
       {!isConfigured && (
         <ConfigWarning message="Supabase configuration missing. Set REACT_APP_SUPABASE_URL and REACT_APP_SUPABASE_KEY in your environment to enable data persistence." />
       )}
-      {isConfigured && !authLoading && !user && (
+
+      {/* Test Mode guidance */}
+      {authDisabled && isConfigured && (
+        <div className="test-mode-banner">
+          <ConfigWarning message="Submissions are allowed without login; if insert fails, adjust RLS policies for anon or temporarily disable RLS for weekly_reports in dev." />
+        </div>
+      )}
+
+      {isConfigured && !authLoading && !user && !authDisabled && (
         <ConfigWarning message="You are not signed in. Please sign in to submit a report." />
       )}
 
@@ -223,7 +250,7 @@ const NewReport = () => {
           <button
             className="btn"
             type="submit"
-            disabled={submitting || !isConfigured || !user}
+            disabled={disableSubmit}
             aria-busy={submitting ? 'true' : 'false'}
           >
             {submitting ? 'Submitting...' : 'Submit Report'}
