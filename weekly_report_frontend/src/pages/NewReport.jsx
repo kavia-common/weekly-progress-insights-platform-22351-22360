@@ -133,11 +133,10 @@ const NewReport = () => {
     }
   };
 
-  const disableSubmit =
-    submitting ||
-    !isConfigured ||
-    (!authDisabled && !user) ||
-    (authDisabled && !hasRequiredContent());
+  // In Test Mode, enable submit based solely on loading and field validation (not tied to user/session/config)
+  const disableSubmit = authDisabled
+    ? submitting || !hasRequiredContent()
+    : submitting || !isConfigured || !user;
 
   return (
     <div className="card" aria-live="polite">
@@ -255,6 +254,11 @@ const NewReport = () => {
           >
             {submitting ? 'Submitting...' : 'Submit Report'}
           </button>
+          {authDisabled && (
+            <span className="helper" title="Submitting without authentication">
+              Test Mode: submitting without auth
+            </span>
+          )}
           {status && <span className="helper">{status}</span>}
         </div>
       </form>
