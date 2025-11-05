@@ -82,7 +82,8 @@ const NewReport = () => {
       return;
     }
 
-    if (!isConfigured) {
+    // Only enforce Supabase configuration in authenticated mode; in Test Mode we attempt submission regardless.
+    if (!authDisabled && !isConfigured) {
       addToast('error', 'Supabase is not configured. Set REACT_APP_SUPABASE_URL and REACT_APP_SUPABASE_KEY.');
       return;
     }
@@ -133,7 +134,7 @@ const NewReport = () => {
     }
   };
 
-  // In Test Mode, enable submit based solely on loading and field validation (not tied to user/session/config)
+  // In Test Mode (auth disabled), ignore isConfigured and user checks; disable only on submitting or invalid content.
   const disableSubmit = authDisabled
     ? submitting || !hasRequiredContent()
     : submitting || !isConfigured || !user;
