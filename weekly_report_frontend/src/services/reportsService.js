@@ -90,3 +90,67 @@ export async function createWeeklyReport({ progress, blockers, plans, week_start
 
   return data;
 }
+
+/**
+ * PUBLIC_INTERFACE
+ * getWeeklyReports - Fetches weekly reports from Supabase with ordering and optional limiting.
+ * Designed to work with RLS: in authenticated mode you will receive only the caller's rows if policies restrict access.
+ * In Test Mode (auth disabled), if anon is blocked by RLS, throws a helpful guidance error.
+ *
+ * @param {Object} [opts]
+ * @param {number} [opts.limit=25] - Maximum number of rows to fetch (for pagination later)
+ * @param {string} [opts.orderBy='created_at'] - Column to order by
+ * @param {boolean} [opts.ascending=false] - Sort direction
+ * @returns {Promise<Array>} Array of report rows with fields:
+ *   id, created_at, week_start, progress, blockers, plans, user_id, tags
+ */
+export async function getWeeklyReports(opts = {}) {
+  const supabase = getSupabase();
+
+  if (!supabase) {
+    throw new Error('Supabase is not configured. Set REACT_APP_SUPABASE_URL and REACT_APP_SUPABASE_KEY.');
+  }
+
+  const authDisabled = isAuthDisabled();
+
+  const {
+    limit = 25,
+    orderBy = 'created_at',
+    ascending = false,
+  } = opts;
+
+  let query = supabase
+    .from('weekly_reports')
+    .select('id, created_at, week_start, progress, blockers, plans, user_id, tags');
+
+  if (orderBy) {
+    query = query.order(orderBy, { ascending, nullsFirst: false });
+  }
+
+  if (Number.isFinite(limit) && limit > 0) {
+    query = query.limit(limit);
+  }
+
+  const { data, error } = await query;
+
+  if (error) {
+    const msg = String(error.message || '').toLowerCase();
+    const looksLikeRls =
+      msg.includes('row-level security') ||
+      msg.includes('rls') ||
+      msg.includes('not authorized') ||
+      msg.includes('permission denied') ||
+      msg.includes('violates row-level security');
+
+    if (authDisabled && looksLikeRls) {
+      throw new Error(
+        'Select blocked by Supabase Row Level Security for anon. In Test Mode, create a dev SELECT policy for role "anon" on public.weekly_reports or sign in. Example: allow SELECT to anon in dev only. Original error: ' +
+          (error.message || 'RLS denied select')
+      );
+    }
+
+    throw new Error(error.message || 'Failed to load weekly reports.');
+  }
+
+  return Array.isArray(data) ? data : [];
+}
