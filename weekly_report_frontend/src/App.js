@@ -9,48 +9,34 @@ import Admin from './pages/Admin';
 import Login from './pages/Login';
 import ProtectedRoute from './components/ProtectedRoute';
 import { AuthProvider } from './context/AuthContext';
+import ConfigWarning from './components/ConfigWarning';
+import { isAuthDisabled } from './lib/featureFlags';
 
 // PUBLIC_INTERFACE
 function App() {
   /** Root application component that sets up routes, provides auth context, and renders the dashboard layout. */
+  const authDisabled = isAuthDisabled();
+
+  // Helper to optionally wrap in ProtectedRoute based on flag
+  const maybeProtect = (children) => {
+    return authDisabled ? children : <ProtectedRoute>{children}</ProtectedRoute>;
+  };
+
   return (
     <Router>
       <AuthProvider>
         <Layout>
+          {authDisabled && (
+            <div style={{ marginBottom: 12 }}>
+              <ConfigWarning message="Auth disabled for local testing. Routes are accessible without sign-in." />
+            </div>
+          )}
           <Routes>
             <Route path="/" element={<Navigate to="/reports/new" replace />} />
-            <Route
-              path="/reports/new"
-              element={
-                <ProtectedRoute>
-                  <NewReport />
-                </ProtectedRoute>
-              }
-            />
-            <Route
-              path="/reports/history"
-              element={
-                <ProtectedRoute>
-                  <History />
-                </ProtectedRoute>
-              }
-            />
-            <Route
-              path="/team"
-              element={
-                <ProtectedRoute>
-                  <TeamDashboard />
-                </ProtectedRoute>
-              }
-            />
-            <Route
-              path="/admin"
-              element={
-                <ProtectedRoute>
-                  <Admin />
-                </ProtectedRoute>
-              }
-            />
+            <Route path="/reports/new" element={maybeProtect(<NewReport />)} />
+            <Route path="/reports/history" element={maybeProtect(<History />)} />
+            <Route path="/team" element={maybeProtect(<TeamDashboard />)} />
+            <Route path="/admin" element={maybeProtect(<Admin />)} />
             <Route path="/login" element={<Login />} />
             <Route path="*" element={<Navigate to="/reports/new" replace />} />
           </Routes>

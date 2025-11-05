@@ -27,6 +27,19 @@ Launches the test runner in interactive watch mode.
 Builds the app for production to the `build` folder.\
 It correctly bundles React in production mode and optimizes the build for the best performance.
 
+## Local Testing: Disable Auth (Feature Flag)
+
+For local UI testing without logging in, you can bypass protected routes by setting the following environment variable before starting the dev server:
+
+- REACT_APP_DISABLE_AUTH=true
+
+When enabled:
+- All routes render without requiring authentication.
+- The header shows a "Test Mode" badge.
+- A banner warns: "Auth disabled for local testing."
+
+Security note: The default is secure (auth required). Do not enable this flag in production.
+
 ## Customization
 
 ### Colors
