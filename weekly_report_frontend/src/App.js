@@ -6,22 +6,56 @@ import NewReport from './pages/NewReport';
 import History from './pages/History';
 import TeamDashboard from './pages/TeamDashboard';
 import Admin from './pages/Admin';
+import Login from './pages/Login';
+import ProtectedRoute from './components/ProtectedRoute';
+import { AuthProvider } from './context/AuthContext';
 
 // PUBLIC_INTERFACE
 function App() {
-  /** Root application component that sets up routes and renders the dashboard layout. */
+  /** Root application component that sets up routes, provides auth context, and renders the dashboard layout. */
   return (
     <Router>
-      <Layout>
-        <Routes>
-          <Route path="/" element={<Navigate to="/reports/new" replace />} />
-          <Route path="/reports/new" element={<NewReport />} />
-          <Route path="/reports/history" element={<History />} />
-          <Route path="/team" element={<TeamDashboard />} />
-          <Route path="/admin" element={<Admin />} />
-          <Route path="*" element={<Navigate to="/reports/new" replace />} />
-        </Routes>
-      </Layout>
+      <AuthProvider>
+        <Layout>
+          <Routes>
+            <Route path="/" element={<Navigate to="/reports/new" replace />} />
+            <Route
+              path="/reports/new"
+              element={
+                <ProtectedRoute>
+                  <NewReport />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/reports/history"
+              element={
+                <ProtectedRoute>
+                  <History />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/team"
+              element={
+                <ProtectedRoute>
+                  <TeamDashboard />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/admin"
+              element={
+                <ProtectedRoute>
+                  <Admin />
+                </ProtectedRoute>
+              }
+            />
+            <Route path="/login" element={<Login />} />
+            <Route path="*" element={<Navigate to="/reports/new" replace />} />
+          </Routes>
+        </Layout>
+      </AuthProvider>
     </Router>
   );
 }

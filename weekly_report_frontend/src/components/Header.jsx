@@ -1,12 +1,14 @@
 import React from 'react';
+import { useAuth } from '../context/AuthContext';
 
 /**
  * PUBLIC_INTERFACE
- * Header with filters and context actions.
+ * Header with filters and user session actions.
  */
 const Header = () => {
   const [week, setWeek] = React.useState('');
   const [team, setTeam] = React.useState('');
+  const { user, signOut } = useAuth();
 
   return (
     <header className="header">
@@ -27,6 +29,20 @@ const Header = () => {
           <option value="beta">Beta</option>
           <option value="gamma">Gamma</option>
         </select>
+
+        {/* User info and sign out */}
+        {user ? (
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginLeft: 8 }}>
+            <span className="helper" title={user.id}>
+              {user.email}
+            </span>
+            <button type="button" className="btn secondary" onClick={signOut}>
+              Sign Out
+            </button>
+          </div>
+        ) : (
+          <span className="helper" style={{ marginLeft: 8 }}>Not signed in</span>
+        )}
       </div>
     </header>
   );
