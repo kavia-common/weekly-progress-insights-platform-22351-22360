@@ -12,6 +12,7 @@ import { AuthProvider } from './context/AuthContext';
 import ConfigWarning from './components/ConfigWarning';
 import { isAuthDisabled } from './lib/featureFlags';
 import { ToastProvider } from './components/ToastProvider';
+import AuthCallback from './pages/AuthCallback';
 
 // PUBLIC_INTERFACE
 function App() {
@@ -40,6 +41,7 @@ function App() {
               <Route path="/team" element={maybeProtect(<TeamDashboard />)} />
               <Route path="/admin" element={maybeProtect(<Admin />)} />
               <Route path="/login" element={<Login />} />
+              <Route path="/auth/callback" element={<AuthCallback />} />
               <Route path="*" element={<Navigate to="/reports/new" replace />} />
             </Routes>
           </Layout>
