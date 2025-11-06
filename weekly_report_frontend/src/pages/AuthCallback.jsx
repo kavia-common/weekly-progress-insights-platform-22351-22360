@@ -26,6 +26,9 @@ const AuthCallback = () => {
 
   const search = new URLSearchParams(location.search);
   const redirectTo = search.get('redirect') || '/reports/new';
+  // Surface any OAuth error details if present
+  const errorCode = search.get('error');
+  const errorDesc = search.get('error_description');
 
   React.useEffect(() => {
     let unsubscribed = false;
@@ -39,25 +42,39 @@ const AuthCallback = () => {
       }
 
       try {
+        // Log any explicit OAuth error codes returned in the URL
+        if (errorCode || errorDesc) {
+          // eslint-disable-next-line no-console
+          console.error('[AuthCallback] OAuth error:', { errorCode, errorDesc });
+        }
         // First, try to read any already-restored session
         const { data, error: sessionError } = await supabase.auth.getSession();
         if (sessionError) {
           // eslint-disable-next-line no-console
           console.error('Error reading session on callback:', sessionError);
+        } else {
+          // eslint-disable-next-line no-console
+          console.debug('[AuthCallback] getSession result:', !!data?.session);
         }
         const session = data?.session || null;
         if (session) {
           // Session is immediately available; proceed
           addToast('success', 'Signed in successfully.');
+          // eslint-disable-next-line no-console
+          console.debug('[AuthCallback] Navigating to redirect:', redirectTo);
           navigate(redirectTo, { replace: true });
           return;
         }
 
         // If no session yet, subscribe to auth changes (provider may set it shortly)
-        const { data: listener } = supabase.auth.onAuthStateChange((_event, newSession) => {
+        const { data: listener } = supabase.auth.onAuthStateChange((event, newSession) => {
           if (unsubscribed) return;
+          // eslint-disable-next-line no-console
+          console.debug('[AuthCallback] onAuthStateChange:', event, 'hasSession=', !!newSession);
           if (newSession) {
             addToast('success', 'Signed in successfully.');
+            // eslint-disable-next-line no-console
+            console.debug('[AuthCallback] Navigating to redirect after state change:', redirectTo);
             navigate(redirectTo, { replace: true });
           }
         });

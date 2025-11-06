@@ -24,23 +24,32 @@ const Login = () => {
 
   const navigate = useNavigate();
   const location = useLocation();
-  const fromPath = location.state?.from?.pathname || '/reports/new';
+  // Determine redirect target: prefer state.from, then ?redirect, then default
+  const search = new URLSearchParams(location.search);
+  const redirectTarget =
+    location.state?.from?.pathname ||
+    search.get('redirect') ||
+    '/reports/new';
 
   const authDisabled = isAuthDisabled();
 
   React.useEffect(() => {
     // If already authenticated, redirect to origin path
     if (user) {
-      navigate(fromPath, { replace: true });
+      // eslint-disable-next-line no-console
+      console.debug('[Login] User already authenticated. Redirecting to:', redirectTarget);
+      navigate(redirectTarget, { replace: true });
     }
-  }, [user, fromPath, navigate]);
+  }, [user, redirectTarget, navigate]);
 
   const siteUrl =
     process.env.REACT_APP_FRONTEND_URL ||
     (typeof window !== 'undefined' ? window.location.origin : '');
 
-  const oauthRedirectTo =
+  // Include the desired redirect target so /auth/callback can navigate properly post-auth
+  const oauthRedirectToBase =
     (typeof window !== 'undefined' ? window.location.origin : '') + '/auth/callback';
+  const oauthRedirectTo = `${oauthRedirectToBase}?redirect=${encodeURIComponent(redirectTarget)}`;
 
   const signInWithProvider = async (provider) => {
     setError(null);
@@ -52,6 +61,8 @@ const Login = () => {
       return;
     }
     try {
+      // eslint-disable-next-line no-console
+      console.debug('[Login] Starting OAuth sign-in with provider:', provider, ' redirectTo:', oauthRedirectTo);
       const { error: signInError } = await supabase.auth.signInWithOAuth({
         provider,
         options: {
@@ -63,7 +74,7 @@ const Login = () => {
       addToast('info', 'Redirecting to provider…');
     } catch (err) {
       // eslint-disable-next-line no-console
-      console.error(err);
+      console.error('[Login] OAuth sign-in error:', err);
       setError(err?.message || 'Failed to start OAuth sign-in.');
       setLoadingProvider(null);
     }
