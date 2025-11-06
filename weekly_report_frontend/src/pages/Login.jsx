@@ -5,6 +5,7 @@ import ConfigWarning from '../components/ConfigWarning';
 import { useAuth } from '../context/AuthContext';
 import { isAuthDisabled } from '../lib/featureFlags';
 import { useToast } from '../components/ToastProvider';
+import { getAppUrl } from '../lib/config';
 
 /**
  * PUBLIC_INTERFACE
@@ -42,14 +43,12 @@ const Login = () => {
     }
   }, [user, redirectTarget, navigate]);
 
-  const siteUrl =
-    process.env.REACT_APP_FRONTEND_URL ||
-    (typeof window !== 'undefined' ? window.location.origin : '');
+  // Resolve base app URL for redirects. Prefers env var, falls back to window origin.
+  const appUrl = getAppUrl();
 
   // Include the desired redirect target so /auth/callback can navigate properly post-auth
-  // Construct redirectTo with origin to ensure correct callback host and preserve target via ?redirect
-  const oauthRedirectToBase =
-    (typeof window !== 'undefined' ? window.location.origin : '') + '/auth/callback';
+  // Construct redirectTo ensuring correct callback host and preserve target via ?redirect
+  const oauthRedirectToBase = `${appUrl}/auth/callback`;
   const oauthRedirectTo = `${oauthRedirectToBase}?redirect=${encodeURIComponent(redirectTarget)}`;
 
   const signInWithProvider = async (provider) => {
@@ -67,6 +66,9 @@ const Login = () => {
       const { error: signInError } = await supabase.auth.signInWithOAuth({
         provider,
         options: {
+          // As requested: const appUrl = process.env.REACT_APP_FRONTEND_URL || window.location.origin;
+          // redirectTo: `${appUrl}/auth/callback`
+          // We also preserve a redirect param for post-login UX.
           redirectTo: oauthRedirectTo,
         },
       });
@@ -94,7 +96,9 @@ const Login = () => {
       const { error: signInError } = await supabase.auth.signInWithOtp({
         email,
         options: {
-          emailRedirectTo: siteUrl, // Redirect back to app root; session will be resumed automatically
+          // Redirect back to app; session will be resumed automatically.
+          // Using getAppUrl() to stay consistent with OAuth redirect base.
+          emailRedirectTo: appUrl,
         },
       });
 
