@@ -6,6 +6,7 @@ import { useToast } from '../components/ToastProvider';
 import ConfigWarning from '../components/ConfigWarning';
 import { apiGet, apiPost, getApiBase } from '../services/apiClient';
 import { useAuth } from '../context/AuthContext';
+import { showApiError, showApiSuccess } from '../utils/toast';
 
 /**
  * PUBLIC_INTERFACE
@@ -107,8 +108,9 @@ const ManagerReports = () => {
       addToast('success', `Loaded ${data.length} report(s).`);
     } catch (e) {
       setRows([]);
-      setError(e?.message || 'Failed to load reports.');
-      addToast('error', e?.message || 'Failed to load reports.');
+      const msg = e?.message || 'Failed to load reports.';
+      setError(msg);
+      showApiError(addToast, e, 'Failed to load reports', { dedupeKey: 'mgr-reports-load' });
     } finally {
       setLoading(false);
     }
@@ -152,8 +154,9 @@ const ManagerReports = () => {
       addToast('success', 'AI summary generated.');
     } catch (e) {
       setSummary(null);
-      setError(e?.message || 'Failed to generate AI summary.');
-      addToast('error', e?.message || 'Failed to generate AI summary.');
+      const msg = e?.message || 'Failed to generate AI summary.';
+      setError(msg);
+      showApiError(addToast, e, 'Failed to generate AI summary', { dedupeKey: 'mgr-ai-summary' });
     } finally {
       setAiLoading(false);
     }

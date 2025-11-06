@@ -46,34 +46,73 @@ const ToastContext = React.createContext({
 
 // PUBLIC_INTERFACE
 /**
- * ToastProvider - Provides a simple toast notification system.
- * Renders a container in the bottom-right with stacked toasts.
+ * ToastProvider - Provides a simple toast notification system with:
+ * - Bottom-right stack
+ * - Auto-dismiss
+ * - Deduplication within a short time window to prevent spam
  */
 export function ToastProvider({ children }) {
   const [toasts, setToasts] = React.useState([]);
+
+  // Track recent keys to avoid duplicate messages flooding
+  // Key is either provided id or `${type}:${message}`
+  const recentRef = React.useRef(new Map()); // key -> timestamp
+  const DEDUPE_WINDOW_MS = 4000;
+  const MAX_TOASTS = 5; // keep it unobtrusive
 
   const removeToast = React.useCallback((id) => {
     setToasts((prev) => prev.filter((t) => t.id !== id));
   }, []);
 
-  const addToast = React.useCallback((type, message, opts = {}) => {
-    const id = opts.id || `${Date.now()}-${Math.random().toString(36).slice(2)}`;
-    const duration = Number.isFinite(opts.duration) ? opts.duration : 3500;
-
-    const toast = {
-      id,
-      type: TYPES[type] ? type : 'info',
-      message,
-    };
-    setToasts((prev) => [...prev, toast]);
-
-    // Auto-dismiss
-    if (duration > 0) {
-      setTimeout(() => removeToast(id), duration);
+  const cleanupRecent = React.useCallback(() => {
+    const now = Date.now();
+    const m = recentRef.current;
+    for (const [k, ts] of m.entries()) {
+      if (now - ts > DEDUPE_WINDOW_MS) m.delete(k);
     }
+  }, []);
 
-    return id;
-  }, [removeToast]);
+  const addToast = React.useCallback(
+    (type, message, opts = {}) => {
+      const safeType = TYPES[type] ? type : 'info';
+      const id = opts.id || `${Date.now()}-${Math.random().toString(36).slice(2)}`;
+      const duration = Number.isFinite(opts.duration) ? opts.duration : 3500;
+
+      // Deduplication: if no explicit id, derive key from type+message
+      const key = opts.id || `${safeType}:${String(message || '').trim()}`;
+      cleanupRecent();
+      const now = Date.now();
+      const last = recentRef.current.get(key);
+      if (last && now - last < DEDUPE_WINDOW_MS) {
+        // duplicate within window: ignore
+        return id;
+      }
+      recentRef.current.set(key, now);
+
+      const toast = {
+        id,
+        type: safeType,
+        message: String(message || ''),
+      };
+
+      setToasts((prev) => {
+        const next = [...prev, toast];
+        // Cap the number of toasts to avoid covering UI
+        if (next.length > MAX_TOASTS) {
+          next.shift();
+        }
+        return next;
+      });
+
+      // Auto-dismiss without blocking UI
+      if (duration > 0) {
+        setTimeout(() => removeToast(id), duration);
+      }
+
+      return id;
+    },
+    [cleanupRecent, removeToast]
+  );
 
   const value = React.useMemo(() => ({ addToast, removeToast }), [addToast, removeToast]);
 

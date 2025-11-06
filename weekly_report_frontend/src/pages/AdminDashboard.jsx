@@ -3,6 +3,7 @@ import { getApiBase, apiGet, apiPost } from '../services/apiClient';
 import ConfigWarning from '../components/ConfigWarning';
 import { useToast } from '../components/ToastProvider';
 import { Link } from 'react-router-dom';
+import { showApiError, showApiInfo, showApiSuccess } from '../utils/toast';
 
 /**
  * PUBLIC_INTERFACE
@@ -35,12 +36,14 @@ const AdminDashboard = () => {
         throw new Error('Backend API base is not configured (set REACT_APP_API_BASE).');
       }
       const data = await apiGet('/admin/users');
-      setUsers(Array.isArray(data) ? data : (data?.items || []));
-      addToast('success', `Loaded ${Array.isArray(data) ? data.length : (data?.items?.length || 0)} user(s).`);
+      const items = Array.isArray(data) ? data : (data?.items || []);
+      setUsers(items);
+      showApiSuccess(addToast, `Loaded ${items.length} user(s).`, { dedupeKey: 'admin-dashboard-users-load' });
     } catch (e) {
       setUsers([]);
-      setUsersError(e?.message || 'Failed to load users.');
-      addToast('error', e?.message || 'Failed to load users.');
+      const msg = e?.message || 'Failed to load users.';
+      setUsersError(msg);
+      showApiError(addToast, e, 'Failed to load users', { dedupeKey: 'admin-dashboard-users-load' });
     } finally {
       setLoadingUsers(false);
     }
@@ -52,21 +55,27 @@ const AdminDashboard = () => {
     try {
       if (!apiBase) {
         // Fallback sample data for local-only mode
-        setWindows([
+        const sample = [
           { id: 'sample-1', name: 'Q1 2025', start: '2025-01-01', end: '2025-03-31', status: 'open' },
           { id: 'sample-2', name: 'Q2 2025', start: '2025-04-01', end: '2025-06-30', status: 'planned' },
-        ]);
+        ];
+        setWindows(sample);
+        showApiInfo(addToast, `Loaded ${sample.length} sample window(s).`, { dedupeKey: 'admin-windows-load' });
       } else {
         const data = await apiGet('/admin/reporting-windows');
-        setWindows(Array.isArray(data) ? data : (data?.items || []));
+        const items = Array.isArray(data) ? data : (data?.items || []);
+        setWindows(items);
+        showApiSuccess(addToast, `Loaded ${items.length} window(s).`, { dedupeKey: 'admin-windows-load' });
       }
     } catch (e) {
       setWindows([]);
-      setWindowsError(e?.message || 'Failed to load reporting windows.');
+      const msg = e?.message || 'Failed to load reporting windows.';
+      setWindowsError(msg);
+      showApiError(addToast, e, 'Failed to load reporting windows', { dedupeKey: 'admin-windows-load' });
     } finally {
       setLoadingWindows(false);
     }
-  }, [apiBase]);
+  }, [apiBase, addToast]);
 
   React.useEffect(() => {
     if (tab === 'users') fetchUsers();
@@ -84,13 +93,13 @@ const AdminDashboard = () => {
     try {
       if (apiBase) {
         await apiPost('/admin/reporting-windows', newItem);
-        addToast('success', 'Reporting window created.');
+        showApiSuccess(addToast, 'Reporting window created.', { dedupeKey: 'admin-window-create' });
         fetchWindows();
       } else {
-        addToast('info', 'Created in local state only. Configure backend to persist.');
+        showApiInfo(addToast, 'Created in local state only.', { details: 'Configure backend to persist', dedupeKey: 'admin-window-create' });
       }
     } catch (e) {
-      addToast('error', e?.message || 'Failed to create reporting window.');
+      showApiError(addToast, e, 'Failed to create reporting window', { dedupeKey: 'admin-window-create' });
     }
   };
 
@@ -99,13 +108,13 @@ const AdminDashboard = () => {
     try {
       if (apiBase) {
         await apiPost(`/admin/reporting-windows/${encodeURIComponent(id)}/delete`);
-        addToast('success', 'Reporting window deleted.');
+        showApiSuccess(addToast, 'Reporting window deleted.', { dedupeKey: 'admin-window-delete' });
         fetchWindows();
       } else {
-        addToast('info', 'Deleted from local state only.');
+        showApiInfo(addToast, 'Deleted from local state only.', { dedupeKey: 'admin-window-delete' });
       }
     } catch (e) {
-      addToast('error', e?.message || 'Failed to delete reporting window.');
+      showApiError(addToast, e, 'Failed to delete reporting window', { dedupeKey: 'admin-window-delete' });
     }
   };
 

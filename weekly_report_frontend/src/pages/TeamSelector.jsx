@@ -4,6 +4,7 @@ import { getTeams, createTeam } from '../services/teamService';
 import ConfigWarning from '../components/ConfigWarning';
 import { useToast } from '../components/ToastProvider';
 import { useAuth } from '../context/AuthContext';
+import { showApiError, showApiInfo, showApiSuccess } from '../utils/toast';
 
 // PUBLIC_INTERFACE
 /**
@@ -38,15 +39,22 @@ const TeamSelector = () => {
     setError(null);
     try {
       const res = await getTeams();
-      setTeams(Array.isArray(res?.teams) ? res.teams : []);
+      const items = Array.isArray(res?.teams) ? res.teams : [];
+      setTeams(items);
       setApiAvailable(Boolean(res?.available));
+      if (items.length >= 0) {
+        const mode = res?.available ? 'from server' : 'sample list';
+        showApiInfo(addToast, `Loaded ${items.length} team(s)`, { details: mode, dedupeKey: 'teams-load' });
+      }
     } catch (e) {
       setTeams([]);
-      setError(e?.message || 'Failed to load teams.');
+      const msg = e?.message || 'Failed to load teams.';
+      setError(msg);
+      showApiError(addToast, e, 'Failed to load teams', { dedupeKey: 'teams-load' });
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [addToast]);
 
   React.useEffect(() => {
     loadTeams();
@@ -56,13 +64,13 @@ const TeamSelector = () => {
     try {
       const result = await setTeamSelection(t);
       if (result?.persisted) {
-        addToast('success', `Team set to "${t.name || t.id}".`);
+        showApiSuccess(addToast, `Team set to "${t.name || t.id}".`, { dedupeKey: 'team-select' });
       } else {
-        addToast('info', `Team set to "${t.name || t.id}" (local only). Configure backend to persist.`);
+        showApiInfo(addToast, `Team set to "${t.name || t.id}" (local only).`, { dedupeKey: 'team-select' });
       }
       navigate(redirectTo, { replace: true });
     } catch (e) {
-      addToast('error', e?.message || 'Failed to set team.');
+      showApiError(addToast, e, 'Failed to set team', { dedupeKey: 'team-select' });
     }
   };
 
@@ -75,9 +83,9 @@ const TeamSelector = () => {
       const created = res?.team;
       if (created?.id) {
         if (!res?.available) {
-          addToast('info', 'Team created locally. Configure backend to persist.');
+          showApiInfo(addToast, 'Team created locally.', { details: 'Configure backend to persist', dedupeKey: 'team-create' });
         } else {
-          addToast('success', 'Team created.');
+          showApiSuccess(addToast, 'Team created.', { dedupeKey: 'team-create' });
         }
         setNewTeamName('');
         // Add to list and select it
@@ -85,7 +93,7 @@ const TeamSelector = () => {
         await onSelectTeam(created);
       }
     } catch (err) {
-      addToast('error', err?.message || 'Failed to create team.');
+      showApiError(addToast, err, 'Failed to create team', { dedupeKey: 'team-create' });
     }
   };
 
