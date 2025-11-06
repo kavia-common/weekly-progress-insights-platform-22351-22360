@@ -22,7 +22,8 @@ export function hasTeamApi() {
 /**
  * getTeams - Fetch teams from backend if available; else return guided sample teams.
  * Expected backend endpoints:
- *  - GET /teams -> returns array of { id, name } or { items: [...] }
+ *  - GET /api/teams -> returns array of { id, name } or { items: [...] }
+ * Note: Path includes /api per backend guidance.
  * @returns {Promise<{ available: boolean, teams: Array<{id:string,name:string}>, message?: string }>}
  */
 export async function getTeams() {
@@ -39,7 +40,8 @@ export async function getTeams() {
       message: 'Backend not configured. Showing sample teams. Selection will be stored locally and not persisted.',
     };
   }
-  const data = await apiGet('/teams');
+  // TODO: If backend path differs, adjust here.
+  const data = await apiGet('/api/teams');
   const items = Array.isArray(data) ? data : (data?.items || []);
   // Normalize shape
   const teams = items.map((t) => ({
@@ -53,7 +55,7 @@ export async function getTeams() {
 /**
  * createTeam - Creates a team when backend is configured; otherwise returns a local-only entry.
  * Expected backend endpoint:
- *  - POST /teams with { name } -> returns created { id, name }
+ *  - POST /api/teams with { name } -> returns created { id, name }
  * @param {string} name
  * @returns {Promise<{ available: boolean, team: {id:string,name:string}, message?: string }>}
  */
@@ -72,7 +74,8 @@ export async function createTeam(name) {
     };
   }
 
-  const res = await apiPost('/teams', { name: safeName });
+  // TODO: If backend path differs, adjust here.
+  const res = await apiPost('/api/teams', { name: safeName });
   const id = String(res?.id ?? res?.team_id ?? slugify(safeName));
   return {
     available: true,
@@ -82,9 +85,30 @@ export async function createTeam(name) {
 
 // PUBLIC_INTERFACE
 /**
+ * summarizeTeam - Calls the summarize action for a team.
+ * Expected backend endpoint:
+ *  - POST /api/teams/:teamId/summarize -> returns { summary: string }
+ * @param {string} teamId
+ * @returns {Promise<{ summary: string, raw?: any }>}
+ */
+export async function summarizeTeam(teamId) {
+  const id = String(teamId || '').trim();
+  if (!id) throw new Error('teamId is required');
+  const { available } = hasTeamApi();
+  if (!available) {
+    throw new Error('Backend not configured. Team summarize requires backend API.');
+  }
+  // TODO: If backend path differs, adjust here.
+  const res = await apiPost(`/api/teams/${encodeURIComponent(id)}/summarize`, {});
+  const summary = String(res?.summary || res?.data || '');
+  return { summary, raw: res };
+}
+
+// PUBLIC_INTERFACE
+/**
  * setUserTeam - Persist the user's team selection to backend if available; otherwise no-op (local only).
  * Expected backend endpoint:
- *  - POST /users/me/team with { team_id }
+ *  - POST /api/users/me/team with { team_id }
  * @param {string} teamId
  * @returns {Promise<{ available: boolean, success: boolean, message?: string }>}
  */
@@ -101,7 +125,8 @@ export async function setUserTeam(teamId) {
     };
   }
 
-  const res = await apiPost('/users/me/team', { team_id: id });
+  // TODO: If backend path differs, adjust here.
+  const res = await apiPost('/api/users/me/team', { team_id: id });
   const ok =
     (typeof res?.success === 'boolean' && res.success) ||
     (res?.status && String(res.status).toLowerCase() === 'ok') ||

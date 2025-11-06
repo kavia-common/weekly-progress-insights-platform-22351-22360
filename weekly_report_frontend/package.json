@@ -1,24 +1,20 @@
 {
-  "name": "react-kavia",
+  "name": "weekly_report_frontend",
   "version": "0.1.0",
   "private": true,
   "dependencies": {
+    "@supabase/supabase-js": "^2.45.4",
     "react": "^18.2.0",
     "react-dom": "^18.2.0",
-    "react-scripts": "^5.0.1",
-    "react-router-dom": "^6.26.2",
-    "@supabase/supabase-js": "^2.45.4"
+    "react-router-dom": "^6.22.3",
+    "react-scripts": "5.0.1"
   },
   "scripts": {
     "start": "react-scripts start",
     "build": "react-scripts build",
-    "test": "react-scripts test",
+    "test": "CI=true react-scripts test --env=jsdom --watchAll=false",
     "eject": "react-scripts eject",
-    "set-role": "cross-env DOTENV_CONFIG_PATH=.env.server node -r dotenv/config scripts/setUserRole.js",
-    "check-role-script": "cross-env DOTENV_CONFIG_PATH=.env.server node -r dotenv/config scripts/checkSupabaseAdminDryRun.js"
-  },
-  "eslintConfig": {
-    "extends": "react-app"
+    "set-role": "node scripts/setUserRole.js"
   },
   "browserslist": {
     "production": [
@@ -31,9 +27,5 @@
       "last 1 firefox version",
       "last 1 safari version"
     ]
-  },
-  "devDependencies": {
-    "cross-env": "^7.0.3",
-    "dotenv": "^16.4.5"
   }
 }

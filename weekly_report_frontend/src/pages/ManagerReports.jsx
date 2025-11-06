@@ -58,7 +58,8 @@ const ManagerReports = () => {
   }, [team]);
 
   const fetchViaBackend = React.useCallback(async () => {
-    const data = await apiGet('/manager/reports', {
+    // TODO: If backend path differs, adjust here.
+    const data = await apiGet('/api/manager/reports', {
       params: {
         team: teamFilter || undefined,
         from: from || undefined,
@@ -143,7 +144,8 @@ const ManagerReports = () => {
           'Backend API base is not configured (REACT_APP_API_BASE). AI summary requires backend integration.'
         );
       }
-      const res = await apiPost('/manager/ai/summary', {
+      // TODO: If backend path differs, adjust here.
+      const res = await apiPost('/api/manager/ai/summary', {
         team: teamFilter || null,
         from: from || null,
         to: to || null,

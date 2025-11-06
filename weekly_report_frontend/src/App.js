@@ -18,6 +18,7 @@ import Unauthorized from './pages/Unauthorized';
 import { ManagerRoute, AdminRoute } from './components/RoleRoutes';
 import AdminUsers from './pages/AdminUsers.jsx';
 import TeamSelector from './pages/TeamSelector.jsx';
+import Teams from './pages/Teams.jsx';
 
 // Helper banner component to notify when team is not persistently saved
 function TeamPersistenceBanner() {
@@ -73,6 +74,16 @@ function App() {
                   authDisabled ? <ManagerReports /> : (
                     <ManagerRoute>
                       <ManagerReports />
+                    </ManagerRoute>
+                  )
+                }
+              />
+              <Route
+                path="/teams"
+                element={
+                  authDisabled ? <Teams /> : (
+                    <ManagerRoute>
+                      <Teams />
                     </ManagerRoute>
                   )
                 }
