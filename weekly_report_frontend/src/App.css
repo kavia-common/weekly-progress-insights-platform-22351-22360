@@ -313,6 +313,54 @@ input.textarea, input[type="text"].textarea, input[type="date"].textarea {
   font-size: 13px;
 }
 
+/* App-wide Config Warning Banner */
+.config-warning-banner {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 8px;
+  align-items: start;
+  padding: 10px 12px;
+  margin-bottom: 12px;
+  border-radius: 12px;
+  border: 1px solid rgba(245, 158, 11, 0.35);
+  background: linear-gradient(0deg, rgba(245, 158, 11, 0.10), var(--surface));
+  color: #92400E;
+  box-shadow: var(--shadow);
+}
+.config-warning-content {
+  font-size: 13px;
+}
+.config-warning-title {
+  font-weight: 700;
+  margin-bottom: 4px;
+}
+.config-warning-list {
+  margin: 0 0 6px 18px;
+  padding: 0;
+}
+.config-warning-list li {
+  margin: 0 0 4px 0;
+}
+.config-warning-tips {
+  color: #8a5a0f;
+}
+.config-warning-tips ul {
+  margin: 4px 0 0 18px;
+  padding: 0;
+}
+.config-warning-dismiss {
+  background: transparent;
+  border: 1px solid rgba(245, 158, 11, 0.4);
+  color: #92400E;
+  padding: 6px 10px;
+  border-radius: 10px;
+  cursor: pointer;
+  height: fit-content;
+}
+.config-warning-dismiss:hover {
+  background: rgba(245, 158, 11, 0.08);
+}
+
 /* Test mode prominence */
 .test-mode-banner {
   margin-bottom: 12px;
