@@ -6,7 +6,24 @@ Roles are primarily stored in `auth.users.app_metadata.role`. Optionally, you ca
 
 IMPORTANT: Never expose the Supabase SERVICE ROLE KEY in frontend code.
 
-## Server-side script: setUserRole
+## Server-side scripts
+
+### Dry-run connectivity (no writes)
+
+Before running role updates, verify that your environment variables and credentials work using a non-destructive check:
+
+- Ensure environment variables (server-side only):
+  - SUPABASE_URL
+  - SUPABASE_SERVICE_ROLE_KEY
+
+- Run:
+  npm run check-role-script
+
+This command initializes the Supabase Admin client and performs a lightweight `auth.admin.listUsers` call with perPage=1. It does not modify any data. It reports:
+- Success if credentials are valid and Supabase is reachable
+- Clear error messages if env vars are missing or credentials are invalid
+
+### setUserRole
 
 Use the provided Node script to set a user's role via the Supabase Admin API.
 

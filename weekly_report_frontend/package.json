@@ -14,7 +14,8 @@
     "build": "react-scripts build",
     "test": "react-scripts test",
     "eject": "react-scripts eject",
-    "set-role": "node scripts/setUserRole.js"
+    "set-role": "node scripts/setUserRole.js",
+    "check-role-script": "node scripts/checkSupabaseAdminDryRun.js"
   },
   "eslintConfig": {
     "extends": "react-app"
