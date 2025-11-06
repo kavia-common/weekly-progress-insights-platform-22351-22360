@@ -33,8 +33,11 @@ const TeamDashboard = () => {
         <div className="page-title" style={{ marginBottom: 8 }}>
           <h1 style={{ fontSize: 16, margin: 0 }}>AI Summaries</h1>
         </div>
-        <div className="helper">
+        <div className="helper" style={{ marginBottom: 8 }}>
           Placeholder for AI-generated summaries of team progress, risk highlights, and cross-team trends.
+        </div>
+        <div>
+          <a href="/manager/reports" className="btn">Open Team Reports & AI Summary</a>
         </div>
       </div>
     </>

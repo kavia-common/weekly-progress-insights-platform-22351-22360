@@ -26,10 +26,16 @@ const Sidebar = () => {
         </NavLink>
 
         {(isManager() || isAdmin()) && (
-          <NavLink to="/team">
-            <span>📊</span>
-            <span>Team Dashboard</span>
-          </NavLink>
+          <>
+            <NavLink to="/team">
+              <span>📊</span>
+              <span>Team Dashboard</span>
+            </NavLink>
+            <NavLink to="/manager/reports">
+              <span>🗂️</span>
+              <span>Team Reports</span>
+            </NavLink>
+          </>
         )}
 
         {isAdmin() && (

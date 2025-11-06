@@ -32,7 +32,8 @@ It correctly bundles React in production mode and optimizes the build for the be
 This repo includes a server-side script to set user roles in Supabase:
 
 - Configure environment (server-side only):
-  - See `.env.example` for required variables: `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`.
+  - Copy `.env.example` to `.env.server` and set: `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`
+  - Scripts auto-load `.env.server` via dotenv and are never exposed to the frontend.
 - Set a role by email:
   - `npm run set-role -- --email user@example.com --role manager`
 - Set a role by user id:

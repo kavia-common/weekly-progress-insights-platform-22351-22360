@@ -5,7 +5,8 @@ import Layout from './components/Layout';
 import NewReport from './pages/NewReport';
 import History from './pages/History';
 import TeamDashboard from './pages/TeamDashboard';
-import Admin from './pages/Admin';
+import Admin from './pages/AdminDashboard';
+import ManagerReports from './pages/ManagerReports';
 import Login from './pages/Login';
 import ProtectedRoute from './components/ProtectedRoute';
 import { AuthProvider } from './context/AuthContext';
@@ -46,6 +47,16 @@ function App() {
                   authDisabled ? <TeamDashboard /> : (
                     <ManagerRoute>
                       <TeamDashboard />
+                    </ManagerRoute>
+                  )
+                }
+              />
+              <Route
+                path="/manager/reports"
+                element={
+                  authDisabled ? <ManagerReports /> : (
+                    <ManagerRoute>
+                      <ManagerReports />
                     </ManagerRoute>
                   )
                 }
