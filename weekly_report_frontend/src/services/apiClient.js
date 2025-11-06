@@ -15,7 +15,7 @@ import { getSupabase } from '../lib/supabaseClient';
 export function getApiBase() {
   const a = process.env.REACT_APP_API_BASE || '';
   const b = process.env.REACT_APP_BACKEND_URL || '';
-  const fallback = 'https://digitalt3-weekly-report-platform-1.kavia.app';
+  const fallback = 'https://digitalt3-weekly-report-platform-1.kavia.app/api';
   const base = (a || b || fallback || '').trim().replace(/\/*$/, '');
   return base || null;
 }

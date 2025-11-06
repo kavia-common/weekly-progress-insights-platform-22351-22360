@@ -32,11 +32,11 @@ It correctly bundles React in production mode and optimizes the build for the be
 The frontend integrates with a backend API. Configure the base URL using environment variables:
 - REACT_APP_API_BASE (preferred)
 - REACT_APP_BACKEND_URL (fallback)
-- If neither is set, the app defaults to https://digitalt3-weekly-report-platform-1.kavia.app
+- If neither is set, the app defaults to https://digitalt3-weekly-report-platform-1.kavia.app/api
 
 Example `.env` (frontend):
 ```
-REACT_APP_API_BASE=https://your-backend.example.com
+REACT_APP_API_BASE=https://your-backend.example.com/api/
 ```
 
 All frontend API calls go through the centralized client in `src/services/apiClient.js`, which:

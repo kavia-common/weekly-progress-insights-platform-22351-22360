@@ -41,7 +41,7 @@ export async function getTeams() {
     };
   }
   // TODO: If backend path differs, adjust here.
-  const data = await apiGet('/api/teams');
+  const data = await apiGet('/teams');
   const items = Array.isArray(data) ? data : (data?.items || []);
   // Normalize shape
   const teams = items.map((t) => ({
@@ -75,7 +75,7 @@ export async function createTeam(name) {
   }
 
   // TODO: If backend path differs, adjust here.
-  const res = await apiPost('/api/teams', { name: safeName });
+  const res = await apiPost('/teams', { name: safeName });
   const id = String(res?.id ?? res?.team_id ?? slugify(safeName));
   return {
     available: true,
@@ -99,7 +99,7 @@ export async function summarizeTeam(teamId) {
     throw new Error('Backend not configured. Team summarize requires backend API.');
   }
   // TODO: If backend path differs, adjust here.
-  const res = await apiPost(`/api/teams/${encodeURIComponent(id)}/summarize`, {});
+  const res = await apiPost(`/teams/${encodeURIComponent(id)}/summarize`, {});
   const summary = String(res?.summary || res?.data || '');
   return { summary, raw: res };
 }
@@ -126,7 +126,7 @@ export async function setUserTeam(teamId) {
   }
 
   // TODO: If backend path differs, adjust here.
-  const res = await apiPost('/api/users/me/team', { team_id: id });
+  const res = await apiPost('/users/me/team', { team_id: id });
   const ok =
     (typeof res?.success === 'boolean' && res.success) ||
     (res?.status && String(res.status).toLowerCase() === 'ok') ||
