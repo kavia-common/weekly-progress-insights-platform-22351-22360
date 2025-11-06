@@ -2,6 +2,7 @@ import React from 'react';
 import { getApiBase, apiGet, apiPost } from '../services/apiClient';
 import ConfigWarning from '../components/ConfigWarning';
 import { useToast } from '../components/ToastProvider';
+import { Link } from 'react-router-dom';
 
 /**
  * PUBLIC_INTERFACE
@@ -130,6 +131,9 @@ const AdminDashboard = () => {
           <TabButton value="users" label="Users" />
           <TabButton value="windows" label="Reporting Windows" />
           <TabButton value="analytics" label="Analytics" />
+          <Link to="/admin/users" className="btn secondary" title="Open Users management page">
+            Open Users Page
+          </Link>
         </div>
       </div>
 

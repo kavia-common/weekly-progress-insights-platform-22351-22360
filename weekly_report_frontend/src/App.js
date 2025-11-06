@@ -16,6 +16,7 @@ import { ToastProvider } from './components/ToastProvider';
 import AuthCallback from './pages/AuthCallback';
 import Unauthorized from './pages/Unauthorized';
 import { ManagerRoute, AdminRoute } from './components/RoleRoutes';
+import AdminUsers from './pages/AdminUsers.jsx';
 
 // PUBLIC_INTERFACE
 function App() {
@@ -67,6 +68,16 @@ function App() {
                   authDisabled ? <Admin /> : (
                     <AdminRoute>
                       <Admin />
+                    </AdminRoute>
+                  )
+                }
+              />
+              <Route
+                path="/admin/users"
+                element={
+                  authDisabled ? <AdminUsers /> : (
+                    <AdminRoute>
+                      <AdminUsers />
                     </AdminRoute>
                   )
                 }
