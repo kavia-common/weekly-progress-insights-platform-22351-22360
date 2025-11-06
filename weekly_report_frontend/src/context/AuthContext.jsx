@@ -120,6 +120,7 @@ export function AuthProvider({ children }) {
   // Initialize session on mount
   React.useEffect(() => {
     let mounted = true;
+    let unsubscribe = null;
 
     async function initSession() {
       try {
@@ -229,9 +230,8 @@ export function AuthProvider({ children }) {
           }
         });
 
-        return () => {
-          listener?.subscription?.unsubscribe?.();
-        };
+        // save unsubscribe callback for effect cleanup
+        unsubscribe = () => listener?.subscription?.unsubscribe?.();
       } catch (e) {
         // eslint-disable-next-line no-console
         console.error('Auth initialization failed:', e);
@@ -242,11 +242,15 @@ export function AuthProvider({ children }) {
       }
     }
 
-    const cleanupPromise = initSession();
+    void initSession();
 
     return () => {
       mounted = false;
-      void cleanupPromise;
+      try {
+        unsubscribe?.();
+      } catch {
+        // ignore
+      }
     };
   }, [supabase, loadRoleFromProfiles]);
 

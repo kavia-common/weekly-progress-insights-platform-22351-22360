@@ -18,6 +18,7 @@ import Unauthorized from './pages/Unauthorized';
 import { ManagerRoute, AdminRoute } from './components/RoleRoutes';
 import AdminUsers from './pages/AdminUsers.jsx';
 import TeamSelector from './pages/TeamSelector.jsx';
+import OAuthRouterShim from './components/OAuthRouterShim';
 
 // Helper banner component to notify when team is not persistently saved
 function TeamPersistenceBanner() {
@@ -47,6 +48,8 @@ function App() {
       <AuthProvider>
         <ToastProvider>
           <Layout>
+            {/* Ensure any inbound OAuth responses are routed to the callback handler */}
+            <OAuthRouterShim />
             {authDisabled && (
               <div className="test-mode-banner" role="status" aria-live="polite">
                 <ConfigWarning message="Auth disabled for local testing. Routes are accessible without sign-in." />

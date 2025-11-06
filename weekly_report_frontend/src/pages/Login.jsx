@@ -61,15 +61,22 @@ const Login = () => {
       return;
     }
     try {
+      // Avoid re-triggering OAuth if already authenticated
+      const { data: sData } = await supabase.auth.getSession();
+      if (sData?.session?.user) {
+        navigate(redirectTarget, { replace: true });
+        return;
+      }
+
       // eslint-disable-next-line no-console
       console.debug('[Login] Starting OAuth sign-in with provider:', provider, ' redirectTo:', oauthRedirectTo);
       const { error: signInError } = await supabase.auth.signInWithOAuth({
         provider,
         options: {
-          // As requested: const appUrl = process.env.REACT_APP_FRONTEND_URL || window.location.origin;
-          // redirectTo: `${appUrl}/auth/callback`
-          // We also preserve a redirect param for post-login UX.
+          // Explicitly use PKCE for browser-based apps
+          queryParams: { prompt: 'select_account' },
           redirectTo: oauthRedirectTo,
+          flowType: 'pkce',
         },
       });
       if (signInError) throw signInError;
