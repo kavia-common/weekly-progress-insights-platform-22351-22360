@@ -55,6 +55,15 @@ function buildUrl(path, params) {
   return url.toString();
 }
 
+function buildHttpError(method, path, res, bodyText) {
+  const err = new Error(bodyText || `${method} ${path} failed with ${res.status}`);
+  err.status = res.status;
+  err.method = method;
+  err.path = path;
+  err.body = bodyText || '';
+  return err;
+}
+
 /**
  * INTERNAL: Merge headers ensuring JSON defaults and Authorization when token present
  */
@@ -91,7 +100,7 @@ export async function apiGet(path, { params, headers, credentials } = {}) {
   });
   if (!res.ok) {
     const text = await res.text().catch(() => '');
-    throw new Error(text || `GET ${path} failed with ${res.status}`);
+    throw buildHttpError('GET', path, res, text);
   }
   const contentType = res.headers.get('content-type') || '';
   return contentType.includes('application/json') ? res.json() : res.text();
@@ -121,8 +130,40 @@ export async function apiPost(path, body, { headers, credentials } = {}) {
   });
   if (!res.ok) {
     const text = await res.text().catch(() => '');
-    throw new Error(text || `POST ${path} failed with ${res.status}`);
+    throw buildHttpError('POST', path, res, text);
   }
   const contentType = res.headers.get('content-type') || '';
   return contentType.includes('application/json') ? res.json() : res.text();
+}
+
+/**
+ * PUBLIC_INTERFACE
+ * apiOptions - Performs an OPTIONS request and returns useful metadata.
+ * Helps discover allowed methods for a path to handle 405 gracefully.
+ */
+export async function apiOptions(path, { params, headers } = {}) {
+  const url = buildUrl(path, params);
+  if (!url) {
+    const err = new Error('Backend API base is not configured (set REACT_APP_API_BASE or REACT_APP_BACKEND_URL).');
+    err.code = 'NO_API_BASE';
+    throw err;
+  }
+  const finalHeaders = await buildHeaders(headers);
+  const res = await fetch(url, {
+    method: 'OPTIONS',
+    headers: finalHeaders,
+    mode: 'cors',
+    credentials: 'omit',
+  });
+  const allow = res.headers.get('allow') || res.headers.get('Allow') || '';
+  const text = await res.text().catch(() => '');
+  if (!res.ok && res.status !== 204) {
+    throw buildHttpError('OPTIONS', path, res, text);
+  }
+  return {
+    status: res.status,
+    allow,
+    body: text,
+    headers: res.headers,
+  };
 }

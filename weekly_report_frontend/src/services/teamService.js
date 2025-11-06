@@ -4,7 +4,7 @@
 // Provides getTeams, createTeam, setUserTeam with backend integration if available, else local-only behavior.
 // Also includes localStorage helpers for temporary persistence.
 //
-import { getApiBase, apiGet, apiPost } from './apiClient';
+import { getApiBase, apiGet, apiPost, apiOptions } from './apiClient';
 
 const LS_TEAM_KEY = 'wr.selectedTeam';
 
@@ -74,13 +74,112 @@ export async function createTeam(name) {
     };
   }
 
-  // TODO: If backend path differs, adjust here.
-  const res = await apiPost('/teams', { name: safeName });
-  const id = String(res?.id ?? res?.team_id ?? slugify(safeName));
-  return {
-    available: true,
-    team: { id, name: safeName },
+  // Try primary endpoint first
+  const primaryPath = '/teams';
+  const payloads = [
+    { name: safeName },                // common
+    { team: { name: safeName } },      // some backends nest under 'team'
+    { title: safeName },               // some use 'title'
+  ];
+  const altPaths = ['/teams/create', '/team', '/team/create'];
+
+  // attempt helper
+  const tryPost = async (path, body) => {
+    try {
+      const res = await apiPost(path, body);
+      return { ok: true, res, path, body };
+    } catch (e) {
+      return { ok: false, err: e, path, body };
+    }
   };
+
+  // 1) Attempt primary with payload variants
+  for (const body of payloads) {
+    const out = await tryPost(primaryPath, body);
+    if (out.ok) {
+      const res = out.res;
+      const id = String(res?.id ?? res?.team_id ?? res?.data?.id ?? slugify(safeName));
+      const actualName = String(res?.name ?? res?.team_name ?? safeName);
+      return { available: true, team: { id, name: actualName } };
+    }
+    // If not 405, bubble up unless 404/400 to try alternates
+    const status = out.err?.status;
+    if (status && ![400, 404, 405].includes(Number(status))) {
+      throw decorateTeamCreateError(out.err, primaryPath);
+    }
+  }
+
+  // 2) If 405 on /teams, probe OPTIONS to guide next attempts
+  try {
+    const meta = await apiOptions(primaryPath);
+    const allow = String(meta?.allow || '').toUpperCase();
+    if (allow && !allow.includes('POST')) {
+      // POST not allowed on /teams; try alternate endpoints
+      for (const alt of altPaths) {
+        for (const body of payloads) {
+          const out = await tryPost(alt, body);
+          if (out.ok) {
+            const res = out.res;
+            const id = String(res?.id ?? res?.team_id ?? res?.data?.id ?? slugify(safeName));
+            const actualName = String(res?.name ?? res?.team_name ?? safeName);
+            return { available: true, team: { id, name: actualName } };
+          }
+          const status = out.err?.status;
+          if (status && ![400, 404, 405].includes(Number(status))) {
+            throw decorateTeamCreateError(out.err, alt);
+          }
+        }
+      }
+      throw new Error('Team create endpoint does not allow POST. Consult backend API for the correct route.');
+    }
+  } catch {
+    // OPTIONS may fail; continue to brute-force alt paths regardless
+  }
+
+  // 3) Try alternates even if OPTIONS unavailable
+  for (const alt of altPaths) {
+    for (const body of payloads) {
+      const out = await tryPost(alt, body);
+      if (out.ok) {
+        const res = out.res;
+        const id = String(res?.id ?? res?.team_id ?? res?.data?.id ?? slugify(safeName));
+        const actualName = String(res?.name ?? res?.team_name ?? safeName);
+        return { available: true, team: { id, name: actualName } };
+      }
+      const status = out.err?.status;
+      if (status && ![400, 404, 405].includes(Number(status))) {
+        throw decorateTeamCreateError(out.err, alt);
+      }
+    }
+  }
+
+  // If we reach here, we failed all attempts; surface the last error with guidance
+  throw new Error(
+    'Failed to create team: backend rejected all known routes (tried /teams, /teams/create, /team). ' +
+      'Ensure REACT_APP_API_BASE points to your backend (including /api if needed) and that the endpoint supports POST.'
+  );
+}
+
+function decorateTeamCreateError(err, pathTried) {
+  const status = Number(err?.status || 0);
+  if (status === 405) {
+    return new Error(
+      `Method Not Allowed (405) for ${pathTried}. The backend may require a different endpoint or method. ` +
+        'Tried adapting automatically; please verify the correct path in backend docs.'
+    );
+  }
+  if (status === 404) {
+    return new Error(
+      `Not Found (404) for ${pathTried}. Verify the teams endpoint path relative to REACT_APP_API_BASE (avoid duplicate /api).`
+    );
+  }
+  if (status === 400) {
+    return new Error(
+      `Bad Request (400) for ${pathTried}. The backend may expect a different payload shape (e.g., { team: { name } } or { title }).`
+    );
+  }
+  // Unknown status; return original or generic
+  return err instanceof Error ? err : new Error(String(err || 'Team creation failed'));
 }
 
 // PUBLIC_INTERFACE
