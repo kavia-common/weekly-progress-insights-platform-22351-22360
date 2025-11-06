@@ -47,6 +47,7 @@ const Login = () => {
     (typeof window !== 'undefined' ? window.location.origin : '');
 
   // Include the desired redirect target so /auth/callback can navigate properly post-auth
+  // Construct redirectTo with origin to ensure correct callback host and preserve target via ?redirect
   const oauthRedirectToBase =
     (typeof window !== 'undefined' ? window.location.origin : '') + '/auth/callback';
   const oauthRedirectTo = `${oauthRedirectToBase}?redirect=${encodeURIComponent(redirectTarget)}`;
