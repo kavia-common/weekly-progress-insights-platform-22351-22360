@@ -3,6 +3,7 @@ import React from 'react';
 /**
  * PUBLIC_INTERFACE
  * TeamDashboard shows KPI cards and a simple chart placeholder.
+ * Intended for Manager/Admin roles. Includes an AI summaries placeholder.
  */
 const TeamDashboard = () => {
   const kpis = [
@@ -25,8 +26,16 @@ const TeamDashboard = () => {
           </div>
         ))}
       </div>
-      <div className="card">
+      <div className="card" style={{ marginBottom: 12 }}>
         <div className="chart">Chart Placeholder</div>
+      </div>
+      <div className="card">
+        <div className="page-title" style={{ marginBottom: 8 }}>
+          <h1 style={{ fontSize: 16, margin: 0 }}>AI Summaries</h1>
+        </div>
+        <div className="helper">
+          Placeholder for AI-generated summaries of team progress, risk highlights, and cross-team trends.
+        </div>
       </div>
     </>
   );

@@ -13,6 +13,8 @@ import ConfigWarning from './components/ConfigWarning';
 import { isAuthDisabled } from './lib/featureFlags';
 import { ToastProvider } from './components/ToastProvider';
 import AuthCallback from './pages/AuthCallback';
+import Unauthorized from './pages/Unauthorized';
+import { ManagerRoute, AdminRoute } from './components/RoleRoutes';
 
 // PUBLIC_INTERFACE
 function App() {
@@ -38,8 +40,27 @@ function App() {
               <Route path="/" element={<Navigate to="/reports/new" replace />} />
               <Route path="/reports/new" element={maybeProtect(<NewReport />)} />
               <Route path="/reports/history" element={maybeProtect(<History />)} />
-              <Route path="/team" element={maybeProtect(<TeamDashboard />)} />
-              <Route path="/admin" element={maybeProtect(<Admin />)} />
+              <Route
+                path="/team"
+                element={
+                  authDisabled ? <TeamDashboard /> : (
+                    <ManagerRoute>
+                      <TeamDashboard />
+                    </ManagerRoute>
+                  )
+                }
+              />
+              <Route
+                path="/admin"
+                element={
+                  authDisabled ? <Admin /> : (
+                    <AdminRoute>
+                      <Admin />
+                    </AdminRoute>
+                  )
+                }
+              />
+              <Route path="/unauthorized" element={<Unauthorized />} />
               <Route path="/login" element={<Login />} />
               <Route path="/auth/callback" element={<AuthCallback />} />
               <Route path="*" element={<Navigate to="/reports/new" replace />} />

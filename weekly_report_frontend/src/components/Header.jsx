@@ -9,7 +9,7 @@ import { isAuthDisabled } from '../lib/featureFlags';
 const Header = () => {
   const [week, setWeek] = React.useState('');
   const [team, setTeam] = React.useState('');
-  const { user, signOut } = useAuth();
+  const { user, role, signOut } = useAuth();
   const authDisabled = isAuthDisabled();
 
   return (
@@ -47,6 +47,16 @@ const Header = () => {
             <span className="helper" title={user.id}>
               {user.email}
             </span>
+            {role && (
+              <span
+                className="test-mode-pill"
+                title={`Role: ${role}`}
+                aria-label={`Current role ${role}`}
+                style={{ borderColor: 'rgba(37, 99, 235, 0.3)', background: 'rgba(37,99,235,0.08)', color: '#1D4ED8' }}
+              >
+                {role}
+              </span>
+            )}
             {!authDisabled && (
               <button type="button" className="btn secondary" onClick={signOut}>
                 Sign Out

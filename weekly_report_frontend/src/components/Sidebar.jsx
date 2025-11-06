@@ -1,11 +1,14 @@
 import React from 'react';
 import { NavLink } from 'react-router-dom';
+import { useAuth } from '../context/AuthContext';
 
 /**
  * PUBLIC_INTERFACE
  * Sidebar navigation for primary sections of the app.
  */
 const Sidebar = () => {
+  const { isManager, isAdmin } = useAuth();
+
   return (
     <aside className="sidebar">
       <div className="brand">
@@ -21,14 +24,20 @@ const Sidebar = () => {
           <span>📚</span>
           <span>History</span>
         </NavLink>
-        <NavLink to="/team">
-          <span>📊</span>
-          <span>Team Dashboard</span>
-        </NavLink>
-        <NavLink to="/admin">
-          <span>⚙️</span>
-          <span>Admin</span>
-        </NavLink>
+
+        {(isManager() || isAdmin()) && (
+          <NavLink to="/team">
+            <span>📊</span>
+            <span>Team Dashboard</span>
+          </NavLink>
+        )}
+
+        {isAdmin() && (
+          <NavLink to="/admin">
+            <span>⚙️</span>
+            <span>Admin</span>
+          </NavLink>
+        )}
       </nav>
     </aside>
   );
