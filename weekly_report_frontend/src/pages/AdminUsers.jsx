@@ -5,7 +5,6 @@ import ConfigWarning from '../components/ConfigWarning';
 import { getSupabase, getSupabaseConfigStatus } from '../lib/supabaseClient';
 import { fetchUsers, updateUserRole, getAdminApiStatus } from '../services/userAdminService';
 import { Link } from 'react-router-dom';
-import { showApiError, showApiInfo, showApiSuccess } from '../utils/toast';
 
 // PUBLIC_INTERFACE
 /**
@@ -46,13 +45,13 @@ const AdminUsers = () => {
         }
       } else {
         setUsers(Array.isArray(res.users) ? res.users : []);
-        showApiSuccess(addToast, `Loaded ${Array.isArray(res.users) ? res.users.length : 0} user(s).`, { dedupeKey: 'admin-users-load' });
+        addToast('success', `Loaded ${Array.isArray(res.users) ? res.users.length : 0} user(s).`);
       }
     } catch (e) {
       setUsers([]);
       const msg = e?.message || 'Failed to load users.';
       setError(msg);
-      showApiError(addToast, e, 'Failed to load users', { dedupeKey: 'admin-users-load' });
+      addToast('error', msg);
     } finally {
       setLoading(false);
     }
@@ -95,10 +94,9 @@ const AdminUsers = () => {
 
   const onChangeRole = async (u, nextRole) => {
     if (!apiAvailable) {
-      showApiInfo(
-        addToast,
-        'Role changes are disabled in the browser when backend is not configured.',
-        { details: 'Use the server-side script.', dedupeKey: 'admin-role-disabled' }
+      addToast(
+        'info',
+        'Role changes are disabled in the browser when backend is not configured. Use the server-side script.'
       );
       return;
     }
@@ -112,11 +110,11 @@ const AdminUsers = () => {
     try {
       const res = await updateUserRole({ userId, email, role: nextRole });
       if (!res.available) {
-        showApiError(addToast, res.message || 'Role update not available', 'Role update not available', { dedupeKey: 'admin-role-update' });
+        addToast('error', res.message || 'Role update not available.');
         return;
       }
       if (res.success) {
-        showApiSuccess(addToast, 'Role updated.', { dedupeKey: 'admin-role-update' });
+        addToast('success', 'Role updated.');
         // Update local state
         setUsers((prev) =>
           prev.map((x) => {
@@ -127,10 +125,10 @@ const AdminUsers = () => {
           })
         );
       } else {
-        showApiError(addToast, res.message || 'Role update failed', 'Role update failed', { dedupeKey: 'admin-role-update' });
+        addToast('error', res.message || 'Role update failed.');
       }
     } catch (e) {
-      showApiError(addToast, e, 'Role update failed', { dedupeKey: 'admin-role-update' });
+      addToast('error', e?.message || 'Role update failed.');
     } finally {
       setRowBusy((prev) => {
         const key = userId || email;
