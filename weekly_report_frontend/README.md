@@ -27,6 +27,25 @@ Launches the test runner in interactive watch mode.
 Builds the app for production to the `build` folder.\
 It correctly bundles React in production mode and optimizes the build for the best performance.
 
+## Role Management (Supabase)
+
+This repo includes a server-side script to set user roles in Supabase:
+
+- Configure environment (server-side only):
+  - See `.env.example` for required variables: `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`.
+- Set a role by email:
+  - `npm run set-role -- --email user@example.com --role manager`
+- Set a role by user id:
+  - `npm run set-role -- --user-id <uuid> --role admin`
+- Optionally mirror to `public.profiles`:
+  - `npm run set-role -- --email user@example.com --role employee --sync-profile`
+
+Security notes:
+- Never expose SERVICE ROLE KEYS in frontend code.
+- The script uses Supabase Admin API and must be executed in Node.js only.
+
+For detailed guidance and RLS notes, see `docs/roles.md`.
+
 ## Local Testing: Disable Auth (Feature Flag)
 
 For local UI testing without logging in, you can bypass protected routes by setting the following environment variable before starting the dev server:
