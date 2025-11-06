@@ -1,11 +1,29 @@
 import React from 'react';
+import { Navigate, useLocation } from 'react-router-dom';
+import { useAuth } from '../context/AuthContext';
 
 /**
  * PUBLIC_INTERFACE
  * TeamDashboard shows KPI cards and a simple chart placeholder.
  * Intended for Manager/Admin roles. Includes an AI summaries placeholder.
+ * Redirects to TeamSelector if no team is selected.
  */
 const TeamDashboard = () => {
+  const { team, teamLoading } = useAuth();
+  const location = useLocation();
+
+  if (teamLoading) {
+    return (
+      <div className="card">
+        <div className="helper" aria-busy="true">Loading…</div>
+      </div>
+    );
+  }
+
+  if (!team) {
+    return <Navigate to="/select-team" replace state={{ from: location }} />;
+  }
+
   const kpis = [
     { label: 'Reports Submitted', value: 42 },
     { label: 'On-time Rate', value: '93%' },
@@ -16,7 +34,7 @@ const TeamDashboard = () => {
   return (
     <>
       <div className="page-title">
-        <h1>Team Dashboard</h1>
+        <h1>Team Dashboard · {team?.name || team?.id}</h1>
       </div>
       <div className="kpis">
         {kpis.map((k) => (

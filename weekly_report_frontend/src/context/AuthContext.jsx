@@ -1,5 +1,6 @@
 import React from 'react';
 import { getSupabase } from '../lib/supabaseClient';
+import { getStoredTeam, storeTeamLocal, clearStoredTeam, setUserTeam as apiSetUserTeam, hasTeamApi } from '../services/teamService';
 
 /**
  * PUBLIC_INTERFACE
@@ -10,6 +11,10 @@ export const AuthContext = React.createContext({
   session: null,
   role: null,
   loading: true,
+  // Team selection
+  team: null, // { id, name? } or null
+  teamLoading: true,
+  teamPersisted: false, // true if saved via backend; false when only local storage
   // PUBLIC_INTERFACE
   /** Returns true if the current role is "employee". */
   isEmployee: () => false,
@@ -22,6 +27,12 @@ export const AuthContext = React.createContext({
   // PUBLIC_INTERFACE
   /** Returns true if role equals any of the provided role names. */
   hasRole: (_roles) => false,
+  // PUBLIC_INTERFACE
+  /** Set the current team; persists via backend when available, else stores locally. */
+  setTeamSelection: async (_team) => {},
+  // PUBLIC_INTERFACE
+  /** Clear team selection from local state (and backend when available). */
+  clearTeamSelection: async () => {},
   signOut: async () => {},
 });
 
@@ -52,12 +63,13 @@ function deriveRoleFromUser(user) {
 
 /**
  * PUBLIC_INTERFACE
- * AuthProvider - Provides Supabase auth session, user state, and role via context,
- * subscribes to auth changes, and exposes a signOut action.
+ * AuthProvider - Provides Supabase auth session, user state, role, and team via context,
+ * subscribes to auth changes, and exposes team selection and signOut actions.
  *
- * Enhancement:
- * - If role is not found in app_metadata/user_metadata, attempts to read from public.profiles.role
- *   for the authenticated user (requires an RLS policy that allows users to select their own row).
+ * Team selection logic:
+ * - If user metadata contains team info (user_metadata.team_id or app_metadata.team_id), use it.
+ * - Else, if localStorage has a selection, use it (teamPersisted=false).
+ * - setTeamSelection persists via backend when available; otherwise stores locally and sets teamPersisted=false.
  */
 export function AuthProvider({ children }) {
   const supabase = getSupabase();
@@ -66,6 +78,11 @@ export function AuthProvider({ children }) {
   const [role, setRole] = React.useState(null);
   const [loading, setLoading] = React.useState(true);
 
+  // Team state
+  const [team, setTeam] = React.useState(null);
+  const [teamPersisted, setTeamPersisted] = React.useState(false);
+  const [teamLoading, setTeamLoading] = React.useState(true);
+
   // Helper to fetch role from profiles if metadata doesn't provide one
   const loadRoleFromProfiles = React.useCallback(
     async (u) => {
@@ -73,23 +90,29 @@ export function AuthProvider({ children }) {
       try {
         const { data, error } = await supabase
           .from('profiles')
-          .select('role')
+          .select('role, team_id, team_name')
           .eq('user_id', u.id)
           .single();
         if (error) {
           // eslint-disable-next-line no-console
-          console.debug('[AuthContext] profiles role lookup skipped/failed:', error.message);
-          return null;
+          console.debug('[AuthContext] profiles lookup skipped/failed:', error.message);
+          return { role: null, team: null };
         }
         const pRole = (data?.role || '').toString().toLowerCase().trim();
+        let nextRole = null;
         if (pRole && ['employee', 'manager', 'admin'].includes(pRole)) {
-          return pRole;
+          nextRole = pRole;
         }
+        let nextTeam = null;
+        if (data?.team_id) {
+          nextTeam = { id: String(data.team_id), name: data?.team_name || '' };
+        }
+        return { role: nextRole, team: nextTeam };
       } catch (e) {
         // eslint-disable-next-line no-console
-        console.debug('[AuthContext] profiles role lookup errored:', e?.message || e);
+        console.debug('[AuthContext] profiles lookup errored:', e?.message || e);
+        return { role: null, team: null };
       }
-      return null;
     },
     [supabase]
   );
@@ -101,12 +124,17 @@ export function AuthProvider({ children }) {
     async function initSession() {
       try {
         if (!supabase) {
-          // Supabase not configured - remain unauthenticated but don't crash
+          // Supabase not configured - still allow local-only team selection
           if (mounted) {
             setSession(null);
             setUser(null);
             setRole(null);
             setLoading(false);
+            // Team from local storage only
+            const lsTeam = getStoredTeam();
+            setTeam(lsTeam);
+            setTeamPersisted(false);
+            setTeamLoading(false);
           }
           return;
         }
@@ -116,9 +144,10 @@ export function AuthProvider({ children }) {
           // eslint-disable-next-line no-console
           console.error('Error getting session:', error);
         }
+        const nextSession = data?.session ?? null;
+        const nextUser = nextSession?.user ?? null;
+
         if (mounted) {
-          const nextSession = data?.session ?? null;
-          const nextUser = nextSession?.user ?? null;
           setSession(nextSession);
           setUser(nextUser);
 
@@ -126,13 +155,36 @@ export function AuthProvider({ children }) {
           setRole(initialRole);
           setLoading(false);
 
-          // Attempt to refine role from profiles if still not found or using heuristic
-          if (nextUser && (!initialRole || initialRole === 'employee')) {
-            const pRole = await loadRoleFromProfiles(nextUser);
-            if (mounted && pRole && pRole !== initialRole) {
-              setRole(pRole);
-            }
+          // Attempt to refine role/team from profiles
+          let profileRole = null;
+          let profileTeam = null;
+          if (nextUser) {
+            const fromProfiles = await loadRoleFromProfiles(nextUser);
+            profileRole = fromProfiles?.role || null;
+            profileTeam = fromProfiles?.team || null;
           }
+          if (profileRole && profileRole !== initialRole) {
+            setRole(profileRole);
+          }
+
+          // Team from user/app metadata or profiles, else local storage
+          const metaTeamId =
+            nextUser?.app_metadata?.team_id ||
+            nextUser?.user_metadata?.team_id ||
+            null;
+
+          if (metaTeamId) {
+            setTeam({ id: String(metaTeamId), name: nextUser?.user_metadata?.team_name || '' });
+            setTeamPersisted(true);
+          } else if (profileTeam) {
+            setTeam(profileTeam);
+            setTeamPersisted(true);
+          } else {
+            const lsTeam = getStoredTeam();
+            setTeam(lsTeam);
+            setTeamPersisted(false);
+          }
+          setTeamLoading(false);
         }
 
         // Subscribe to auth state changes
@@ -141,14 +193,39 @@ export function AuthProvider({ children }) {
           setSession(currentSession);
           setUser(currentUser);
 
-          const initialRole = deriveRoleFromUser(currentUser);
-          setRole(initialRole);
+          const initialRole2 = deriveRoleFromUser(currentUser);
+          setRole(initialRole2);
 
-          if (currentUser && (!initialRole || initialRole === 'employee')) {
-            const pRole = await loadRoleFromProfiles(currentUser);
-            if (pRole && pRole !== initialRole) {
-              setRole(pRole);
-            }
+          let profileRole2 = null;
+          let profileTeam2 = null;
+          if (currentUser) {
+            const fromProfiles = await loadRoleFromProfiles(currentUser);
+            profileRole2 = fromProfiles?.role || null;
+            profileTeam2 = fromProfiles?.team || null;
+          }
+          if (profileRole2 && profileRole2 !== initialRole2) {
+            setRole(profileRole2);
+          }
+
+          const metaTeamId2 =
+            currentUser?.app_metadata?.team_id ||
+            currentUser?.user_metadata?.team_id ||
+            null;
+
+          setTeamLoading(true);
+          if (metaTeamId2) {
+            setTeam({ id: String(metaTeamId2), name: currentUser?.user_metadata?.team_name || '' });
+            setTeamPersisted(true);
+            setTeamLoading(false);
+          } else if (profileTeam2) {
+            setTeam(profileTeam2);
+            setTeamPersisted(true);
+            setTeamLoading(false);
+          } else {
+            const lsTeam = getStoredTeam();
+            setTeam(lsTeam);
+            setTeamPersisted(false);
+            setTeamLoading(false);
           }
         });
 
@@ -160,6 +237,7 @@ export function AuthProvider({ children }) {
         console.error('Auth initialization failed:', e);
         if (mounted) {
           setLoading(false);
+          setTeamLoading(false);
         }
       }
     }
@@ -168,7 +246,6 @@ export function AuthProvider({ children }) {
 
     return () => {
       mounted = false;
-      // handle potential async cleanup
       void cleanupPromise;
     };
   }, [supabase, loadRoleFromProfiles]);
@@ -184,16 +261,66 @@ export function AuthProvider({ children }) {
     [role]
   );
 
+  // PUBLIC_INTERFACE
+  const setTeamSelection = React.useCallback(
+    async (nextTeam) => {
+      if (!nextTeam || !nextTeam.id) return { persisted: false };
+      // Attempt to persist via backend when available
+      try {
+        const { available } = hasTeamApi();
+        if (available) {
+          const res = await apiSetUserTeam(nextTeam.id);
+          if (res?.available && res?.success) {
+            setTeam({ id: String(nextTeam.id), name: nextTeam.name || '' });
+            setTeamPersisted(true);
+            // Clear local storage copy once persisted
+            clearStoredTeam();
+            return { persisted: true };
+          }
+        }
+      } catch (e) {
+        // eslint-disable-next-line no-console
+        console.debug('[AuthContext] setUserTeam backend persist failed; falling back to local.', e?.message || e);
+      }
+      // Local-only fallback
+      setTeam({ id: String(nextTeam.id), name: nextTeam.name || '' });
+      setTeamPersisted(false);
+      storeTeamLocal(nextTeam);
+      return { persisted: false };
+    },
+    []
+  );
+
+  // PUBLIC_INTERFACE
+  const clearTeamSelection = React.useCallback(async () => {
+    try {
+      clearStoredTeam();
+    } catch {
+      // ignore
+    }
+    setTeam(null);
+    setTeamPersisted(false);
+  }, []);
+
   const value = React.useMemo(
     () => ({
       user,
       session,
       role,
       loading,
+      team,
+      teamLoading,
+      teamPersisted,
       isEmployee,
       isManager,
       isAdmin,
       hasRole,
+      // PUBLIC_INTERFACE
+      /** Set the current team and attempt to persist via backend if available. */
+      setTeamSelection,
+      // PUBLIC_INTERFACE
+      /** Clear team selection from local-only storage and memory. */
+      clearTeamSelection,
       // PUBLIC_INTERFACE
       /** Signs the user out of Supabase and resets the context. */
       signOut: async () => {
@@ -206,7 +333,7 @@ export function AuthProvider({ children }) {
         }
       },
     }),
-    [user, session, role, loading, isEmployee, isManager, isAdmin, hasRole, supabase]
+    [user, session, role, loading, team, teamLoading, teamPersisted, isEmployee, isManager, isAdmin, hasRole, setTeamSelection, clearTeamSelection, supabase]
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

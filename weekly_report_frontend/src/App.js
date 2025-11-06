@@ -9,7 +9,7 @@ import Admin from './pages/AdminDashboard';
 import ManagerReports from './pages/ManagerReports';
 import Login from './pages/Login';
 import ProtectedRoute from './components/ProtectedRoute';
-import { AuthProvider } from './context/AuthContext';
+import { AuthProvider, useAuth } from './context/AuthContext';
 import ConfigWarning from './components/ConfigWarning';
 import { isAuthDisabled } from './lib/featureFlags';
 import { ToastProvider } from './components/ToastProvider';
@@ -17,6 +17,20 @@ import AuthCallback from './pages/AuthCallback';
 import Unauthorized from './pages/Unauthorized';
 import { ManagerRoute, AdminRoute } from './components/RoleRoutes';
 import AdminUsers from './pages/AdminUsers.jsx';
+import TeamSelector from './pages/TeamSelector.jsx';
+
+// Helper banner component to notify when team is not persistently saved
+function TeamPersistenceBanner() {
+  const { team, teamPersisted } = useAuth();
+  if (team && !teamPersisted) {
+    return (
+      <div className="test-mode-banner" role="status" aria-live="polite">
+        <ConfigWarning message="Selected team is stored locally and may be lost. Configure backend (REACT_APP_API_BASE) to persist team assignment." />
+      </div>
+    );
+  }
+  return null;
+}
 
 // PUBLIC_INTERFACE
 function App() {
@@ -38,6 +52,7 @@ function App() {
                 <ConfigWarning message="Auth disabled for local testing. Routes are accessible without sign-in." />
               </div>
             )}
+            <TeamPersistenceBanner />
             <Routes>
               <Route path="/" element={<Navigate to="/reports/new" replace />} />
               <Route path="/reports/new" element={maybeProtect(<NewReport />)} />
@@ -62,6 +77,7 @@ function App() {
                   )
                 }
               />
+              <Route path="/select-team" element={maybeProtect(<TeamSelector />)} />
               <Route
                 path="/admin"
                 element={
