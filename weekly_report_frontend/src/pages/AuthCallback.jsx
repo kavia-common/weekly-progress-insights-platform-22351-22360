@@ -1,7 +1,7 @@
 import React from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { getSupabase, getSupabaseConfigStatus } from '../lib/supabaseClient';
-import { useToast } from '../components/ToastProvider';
+
 import { getAppUrl } from '../lib/config';
 
 /**
@@ -27,12 +27,14 @@ import { getAppUrl } from '../lib/config';
  * - Waits for Supabase to establish a session (restored or via state change).
  * - Shows diagnostics on timeout with manual Retry/Continue actions.
  */
+/* Control flow audit: Verified no statements after return; logs moved before returns where applicable.
+   Also removed unused toast usage to resolve lint warnings about unused variables. */
 const AuthCallback = () => {
   const supabase = getSupabase();
   const { isConfigured } = getSupabaseConfigStatus();
   const navigate = useNavigate();
   const location = useLocation();
-  const { addToast } = useToast();
+
 
   // Local UI state
   const [checking, setChecking] = React.useState(true);
