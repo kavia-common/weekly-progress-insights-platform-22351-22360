@@ -40,7 +40,7 @@ const AuthCallback = () => {
   const redirectParam =
     search.get('redirect') ||
     hashParams.get('redirect') ||
-    '/reports/new';
+    '/';
 
   // OAuth error detection from both places
   const oauthError =
@@ -58,13 +58,13 @@ const AuthCallback = () => {
     (console[level] || console.log)('[AuthCallback]', ...args);
   };
 
-  // Cleanup URL (remove tokens/hash)
+  // Cleanup URL (remove tokens/hash but preserve redirect param)
   const cleanupUrl = React.useCallback(() => {
     try {
       const base = '/auth/callback';
       const params = new URLSearchParams();
       if (redirectParam) params.set('redirect', redirectParam);
-      const newUrl = `${base}?${params.toString()}`;
+      const newUrl = params.toString() ? `${base}?${params.toString()}` : base;
       window.history.replaceState({}, '', newUrl);
     } catch {
       // no-op if history API fails
@@ -77,13 +77,14 @@ const AuthCallback = () => {
 
     async function finalize() {
       if (!supabase) {
+        // Null-safe when Supabase is not configured
         setError('Supabase is not configured. Set REACT_APP_SUPABASE_URL and REACT_APP_SUPABASE_KEY.');
         setChecking(false);
         return;
       }
 
       try {
-        // Log mode and any explicit OAuth error codes returned in the URL
+        // Log any explicit OAuth error codes returned in the URL
         if (oauthError || oauthErrorDesc) {
           log('error', 'OAuth error detected in URL', { oauthError, oauthErrorDesc });
         } else {
@@ -138,7 +139,7 @@ const AuthCallback = () => {
               : 'We could not complete the sign-in. Please try again or contact support.'
           );
           cleanupUrl();
-        }, 9000); // 9s timeout window
+        }, 7000); // ~7s timeout window
 
         // Cleanup function for the effect
         return () => {
