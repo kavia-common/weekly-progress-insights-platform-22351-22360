@@ -1,5 +1,5 @@
 import React from 'react';
-import { getSupabase } from '../lib/supabaseClient';
+import { getSupabase, getSupabaseConfigStatus } from '../lib/supabaseClient';
 
 /**
  * PUBLIC_INTERFACE
@@ -30,6 +30,23 @@ export function useAuth() {
 }
 
 /**
+ * Internal dev-gated logger for auth flow.
+ * Use localStorage key "auth_debug" = "true" to force logs (in case NODE_ENV checks vary).
+ */
+function authDebugLog(...args) {
+  try {
+    const forced = typeof window !== 'undefined' && localStorage.getItem('auth_debug') === 'true';
+    const dev = process.env.NODE_ENV !== 'production';
+    if (dev || forced) {
+      // eslint-disable-next-line no-console
+      console.debug('[AUTH][DEBUG]', ...args);
+    }
+  } catch {
+    // ignore storage access errors
+  }
+}
+
+/**
  * Infer a role string from a Supabase user object or fallback rules.
  * Priority: app_metadata.role > user_metadata.role > email-based heuristic > "employee"
  */
@@ -51,6 +68,24 @@ function deriveRoleFromUser(user) {
 }
 
 /**
+ * Resolve role with source information for debug logging (no behavior change).
+ */
+function resolveRoleWithSource(user) {
+  if (!user) return { role: null, source: 'none' };
+  const appRole = user?.app_metadata?.role || user?.app_metadata?.roles?.[0];
+  const metaRole = user?.user_metadata?.role || user?.user_metadata?.roles?.[0];
+  const baseRole = deriveRoleFromUser(user);
+
+  let source = 'heuristic';
+  if (appRole && ['employee', 'manager', 'admin'].includes(String(appRole).toLowerCase())) {
+    source = 'app_metadata';
+  } else if (metaRole && ['employee', 'manager', 'admin'].includes(String(metaRole).toLowerCase())) {
+    source = 'user_metadata';
+  }
+  return { role: baseRole, source };
+}
+
+/**
  * PUBLIC_INTERFACE
  * AuthProvider - Provides Supabase auth session, user state, and role via context,
  * subscribes to auth changes, and exposes a signOut action.
@@ -66,6 +101,22 @@ export function AuthProvider({ children }) {
   const [role, setRole] = React.useState(null);
   const [loading, setLoading] = React.useState(true);
 
+  // On mount: configuration snapshot (no secrets)
+  React.useEffect(() => {
+    const status = getSupabaseConfigStatus();
+    authDebugLog('AuthProvider mount', {
+      supabaseConfigured: status?.isConfigured,
+      supabaseUrlPresent: Boolean(status?.url),
+      keyPresent: Boolean(status?.hasKey),
+      nodeEnv: process.env.NODE_ENV,
+    });
+    if (!supabase) {
+      authDebugLog('Supabase client is not configured. Auth will remain unauthenticated.');
+    } else {
+      authDebugLog('Supabase client is available. Starting session hydration…');
+    }
+  }, [supabase]);
+
   // Helper to fetch role from profiles if metadata doesn't provide one
   const loadRoleFromProfiles = React.useCallback(
     async (u) => {
@@ -77,17 +128,16 @@ export function AuthProvider({ children }) {
           .eq('user_id', u.id)
           .single();
         if (error) {
-          // eslint-disable-next-line no-console
-          console.debug('[AuthContext] profiles role lookup skipped/failed:', error.message);
+          authDebugLog('profiles role lookup skipped/failed:', String(error.message || error));
           return null;
         }
         const pRole = (data?.role || '').toString().toLowerCase().trim();
         if (pRole && ['employee', 'manager', 'admin'].includes(pRole)) {
+          authDebugLog('profiles role lookup success', { userId: u.id, role: pRole });
           return pRole;
         }
       } catch (e) {
-        // eslint-disable-next-line no-console
-        console.debug('[AuthContext] profiles role lookup errored:', e?.message || e);
+        authDebugLog('profiles role lookup errored:', String(e?.message || e));
       }
       return null;
     },
@@ -103,6 +153,7 @@ export function AuthProvider({ children }) {
         if (!supabase) {
           // Supabase not configured - remain unauthenticated but don't crash
           if (mounted) {
+            authDebugLog('initSession: supabase missing -> set unauthenticated state');
             setSession(null);
             setUser(null);
             setRole(null);
@@ -113,50 +164,69 @@ export function AuthProvider({ children }) {
 
         const { data, error } = await supabase.auth.getSession();
         if (error) {
-          // eslint-disable-next-line no-console
           console.error('Error getting session:', error);
         }
         if (mounted) {
           const nextSession = data?.session ?? null;
           const nextUser = nextSession?.user ?? null;
+          authDebugLog('getSession resolved', {
+            hasSession: Boolean(nextSession),
+            userId: nextUser?.id || null,
+            email: nextUser?.email || null,
+            provider_token_present: false, // never log sensitive tokens
+          });
           setSession(nextSession);
           setUser(nextUser);
 
-          const initialRole = deriveRoleFromUser(nextUser);
+          const { role: initialRole, source } = resolveRoleWithSource(nextUser);
           setRole(initialRole);
           setLoading(false);
+          authDebugLog('role resolved from initial session', {
+            role: initialRole,
+            source,
+          });
 
           // Attempt to refine role from profiles if still not found or using heuristic
-          if (nextUser && (!initialRole || initialRole === 'employee')) {
+          if (nextUser && (!initialRole || source === 'heuristic')) {
             const pRole = await loadRoleFromProfiles(nextUser);
             if (mounted && pRole && pRole !== initialRole) {
               setRole(pRole);
+              authDebugLog('role refined via profiles', { role: pRole, previous: initialRole });
             }
           }
         }
 
         // Subscribe to auth state changes
-        const { data: listener } = supabase.auth.onAuthStateChange(async (_event, currentSession) => {
+        const { data: listener } = supabase.auth.onAuthStateChange(async (event, currentSession) => {
           const currentUser = currentSession?.user ?? null;
+          authDebugLog('onAuthStateChange', {
+            event,
+            hasSession: Boolean(currentSession),
+            userId: currentUser?.id || null,
+            email: currentUser?.email || null,
+          });
+
           setSession(currentSession);
           setUser(currentUser);
 
-          const initialRole = deriveRoleFromUser(currentUser);
+          const { role: initialRole, source } = resolveRoleWithSource(currentUser);
           setRole(initialRole);
+          authDebugLog('role resolved on auth event', { role: initialRole, source });
 
-          if (currentUser && (!initialRole || initialRole === 'employee')) {
+          if (currentUser && (!initialRole || source === 'heuristic')) {
             const pRole = await loadRoleFromProfiles(currentUser);
             if (pRole && pRole !== initialRole) {
               setRole(pRole);
+              authDebugLog('role refined via profiles on auth event', { role: pRole, previous: initialRole });
             }
           }
         });
 
         return () => {
           listener?.subscription?.unsubscribe?.();
+          authDebugLog('AuthProvider cleanup: unsubscribed from auth state changes');
         };
       } catch (e) {
-        // eslint-disable-next-line no-console
         console.error('Auth initialization failed:', e);
         if (mounted) {
           setLoading(false);
@@ -168,8 +238,8 @@ export function AuthProvider({ children }) {
 
     return () => {
       mounted = false;
-      // handle potential async cleanup
       void cleanupPromise;
+      authDebugLog('AuthProvider unmount');
     };
   }, [supabase, loadRoleFromProfiles]);
 
@@ -183,6 +253,17 @@ export function AuthProvider({ children }) {
     },
     [role]
   );
+
+  // State change debug traces (lightweight; avoid spamming)
+  React.useEffect(() => {
+    authDebugLog('context state change', {
+      loading,
+      hasUser: Boolean(user),
+      userId: user?.id || null,
+      role,
+      hasSession: Boolean(session),
+    });
+  }, [loading, user, role, session]);
 
   const value = React.useMemo(
     () => ({
@@ -199,9 +280,10 @@ export function AuthProvider({ children }) {
       signOut: async () => {
         if (!supabase) return;
         try {
+          authDebugLog('signOut called');
           await supabase.auth.signOut();
+          authDebugLog('signOut complete');
         } catch (e) {
-          // eslint-disable-next-line no-console
           console.error('Error signing out:', e);
         }
       },
