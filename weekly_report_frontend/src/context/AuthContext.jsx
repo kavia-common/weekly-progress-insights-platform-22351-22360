@@ -140,10 +140,15 @@ export function AuthProvider({ children }) {
           return;
         }
 
+        // eslint-disable-next-line no-console
+        console.debug('[AuthContext] Initializing session…');
         const { data, error } = await supabase.auth.getSession();
         if (error) {
           // eslint-disable-next-line no-console
-          console.error('Error getting session:', error);
+          console.error('[AuthContext] Error getting session:', error);
+        } else {
+          // eslint-disable-next-line no-console
+          console.debug('[AuthContext] getSession hasSession=', !!data?.session);
         }
         const nextSession = data?.session ?? null;
         const nextUser = nextSession?.user ?? null;
@@ -189,7 +194,9 @@ export function AuthProvider({ children }) {
         }
 
         // Subscribe to auth state changes
-        const { data: listener } = supabase.auth.onAuthStateChange(async (_event, currentSession) => {
+        const { data: listener } = supabase.auth.onAuthStateChange(async (event, currentSession) => {
+          // eslint-disable-next-line no-console
+          console.debug('[AuthContext] onAuthStateChange event=', event, 'hasSession=', !!currentSession);
           const currentUser = currentSession?.user ?? null;
           setSession(currentSession);
           setUser(currentUser);
@@ -234,7 +241,7 @@ export function AuthProvider({ children }) {
         unsubscribe = () => listener?.subscription?.unsubscribe?.();
       } catch (e) {
         // eslint-disable-next-line no-console
-        console.error('Auth initialization failed:', e);
+        console.error('[AuthContext] Auth initialization failed:', e);
         if (mounted) {
           setLoading(false);
           setTeamLoading(false);
