@@ -1,29 +1,11 @@
 import React from 'react';
-import { Navigate, useLocation } from 'react-router-dom';
-import { useAuth } from '../context/AuthContext';
 
 /**
  * PUBLIC_INTERFACE
  * TeamDashboard shows KPI cards and a simple chart placeholder.
  * Intended for Manager/Admin roles. Includes an AI summaries placeholder.
- * Redirects to TeamSelector if no team is selected.
  */
 const TeamDashboard = () => {
-  const { team, teamLoading } = useAuth();
-  const location = useLocation();
-
-  if (teamLoading) {
-    return (
-      <div className="card">
-        <div className="helper" aria-busy="true">Loading…</div>
-      </div>
-    );
-  }
-
-  if (!team) {
-    return <Navigate to="/select-team" replace state={{ from: location }} />;
-  }
-
   const kpis = [
     { label: 'Reports Submitted', value: 42 },
     { label: 'On-time Rate', value: '93%' },
@@ -34,7 +16,7 @@ const TeamDashboard = () => {
   return (
     <>
       <div className="page-title">
-        <h1>Team Dashboard · {team?.name || team?.id}</h1>
+        <h1>Team Dashboard</h1>
       </div>
       <div className="kpis">
         {kpis.map((k) => (
@@ -51,11 +33,8 @@ const TeamDashboard = () => {
         <div className="page-title" style={{ marginBottom: 8 }}>
           <h1 style={{ fontSize: 16, margin: 0 }}>AI Summaries</h1>
         </div>
-        <div className="helper" style={{ marginBottom: 8 }}>
+        <div className="helper">
           Placeholder for AI-generated summaries of team progress, risk highlights, and cross-team trends.
-        </div>
-        <div>
-          <a href="/manager/reports" className="btn">Open Team Reports & AI Summary</a>
         </div>
       </div>
     </>

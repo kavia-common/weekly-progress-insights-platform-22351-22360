@@ -1,5 +1,5 @@
 import React from 'react';
-import { NavLink, Link } from 'react-router-dom';
+import { NavLink } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 
 /**
@@ -7,7 +7,7 @@ import { useAuth } from '../context/AuthContext';
  * Sidebar navigation for primary sections of the app.
  */
 const Sidebar = () => {
-  const { isManager, isAdmin, team } = useAuth();
+  const { isManager, isAdmin } = useAuth();
 
   return (
     <aside className="sidebar">
@@ -15,17 +15,6 @@ const Sidebar = () => {
         <div className="brand-badge">WR</div>
         <div className="brand-title">Weekly Report Platform</div>
       </div>
-
-      <div className="card" style={{ marginBottom: 10 }}>
-        <div className="helper" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-          <span>Team</span>
-          <Link to="/select-team" className="btn secondary" style={{ padding: '6px 8px' }}>Change</Link>
-        </div>
-        <div style={{ marginTop: 6, fontWeight: 600 }}>
-          {team ? (team.name || team.id) : <span style={{ color: 'var(--muted)' }}>No team selected</span>}
-        </div>
-      </div>
-
       <nav className="nav">
         <NavLink to="/reports/new">
           <span>📝</span>
@@ -37,16 +26,10 @@ const Sidebar = () => {
         </NavLink>
 
         {(isManager() || isAdmin()) && (
-          <>
-            <NavLink to="/team">
-              <span>📊</span>
-              <span>Team Dashboard</span>
-            </NavLink>
-            <NavLink to="/manager/reports">
-              <span>🗂️</span>
-              <span>Team Reports</span>
-            </NavLink>
-          </>
+          <NavLink to="/team">
+            <span>📊</span>
+            <span>Team Dashboard</span>
+          </NavLink>
         )}
 
         {isAdmin() && (
