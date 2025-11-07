@@ -54,6 +54,10 @@ function deriveRoleFromUser(user) {
  * PUBLIC_INTERFACE
  * AuthProvider - Provides Supabase auth session, user state, and role via context,
  * subscribes to auth changes, and exposes a signOut action.
+ *
+ * Enhancement:
+ * - If role is not found in app_metadata/user_metadata, attempts to read from public.profiles.role
+ *   for the authenticated user (requires an RLS policy that allows users to select their own row).
  */
 export function AuthProvider({ children }) {
   const supabase = getSupabase();
@@ -61,6 +65,34 @@ export function AuthProvider({ children }) {
   const [user, setUser] = React.useState(null);
   const [role, setRole] = React.useState(null);
   const [loading, setLoading] = React.useState(true);
+
+  // Helper to fetch role from profiles if metadata doesn't provide one
+  const loadRoleFromProfiles = React.useCallback(
+    async (u) => {
+      if (!supabase || !u?.id) return null;
+      try {
+        const { data, error } = await supabase
+          .from('profiles')
+          .select('role')
+          .eq('user_id', u.id)
+          .single();
+        if (error) {
+          // eslint-disable-next-line no-console
+          console.debug('[AuthContext] profiles role lookup skipped/failed:', error.message);
+          return null;
+        }
+        const pRole = (data?.role || '').toString().toLowerCase().trim();
+        if (pRole && ['employee', 'manager', 'admin'].includes(pRole)) {
+          return pRole;
+        }
+      } catch (e) {
+        // eslint-disable-next-line no-console
+        console.debug('[AuthContext] profiles role lookup errored:', e?.message || e);
+      }
+      return null;
+    },
+    [supabase]
+  );
 
   // Initialize session on mount
   React.useEffect(() => {
@@ -89,16 +121,35 @@ export function AuthProvider({ children }) {
           const nextUser = nextSession?.user ?? null;
           setSession(nextSession);
           setUser(nextUser);
-          setRole(deriveRoleFromUser(nextUser));
+
+          const initialRole = deriveRoleFromUser(nextUser);
+          setRole(initialRole);
           setLoading(false);
+
+          // Attempt to refine role from profiles if still not found or using heuristic
+          if (nextUser && (!initialRole || initialRole === 'employee')) {
+            const pRole = await loadRoleFromProfiles(nextUser);
+            if (mounted && pRole && pRole !== initialRole) {
+              setRole(pRole);
+            }
+          }
         }
 
         // Subscribe to auth state changes
-        const { data: listener } = supabase.auth.onAuthStateChange((_event, currentSession) => {
+        const { data: listener } = supabase.auth.onAuthStateChange(async (_event, currentSession) => {
           const currentUser = currentSession?.user ?? null;
           setSession(currentSession);
           setUser(currentUser);
-          setRole(deriveRoleFromUser(currentUser));
+
+          const initialRole = deriveRoleFromUser(currentUser);
+          setRole(initialRole);
+
+          if (currentUser && (!initialRole || initialRole === 'employee')) {
+            const pRole = await loadRoleFromProfiles(currentUser);
+            if (pRole && pRole !== initialRole) {
+              setRole(pRole);
+            }
+          }
         });
 
         return () => {
@@ -120,7 +171,7 @@ export function AuthProvider({ children }) {
       // handle potential async cleanup
       void cleanupPromise;
     };
-  }, [supabase]);
+  }, [supabase, loadRoleFromProfiles]);
 
   const isEmployee = React.useCallback(() => role === 'employee', [role]);
   const isManager = React.useCallback(() => role === 'manager', [role]);

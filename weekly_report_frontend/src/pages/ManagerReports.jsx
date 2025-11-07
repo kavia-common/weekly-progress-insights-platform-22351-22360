@@ -1,11 +1,9 @@
 import React from 'react';
-import { Navigate, useLocation } from 'react-router-dom';
 import { getSupabase } from '../lib/supabaseClient';
 import { isAuthDisabled } from '../lib/featureFlags';
 import { useToast } from '../components/ToastProvider';
 import ConfigWarning from '../components/ConfigWarning';
 import { apiGet, apiPost, getApiBase } from '../services/apiClient';
-import { useAuth } from '../context/AuthContext';
 
 /**
  * PUBLIC_INTERFACE
@@ -16,12 +14,8 @@ import { useAuth } from '../context/AuthContext';
  *   - POST /manager/ai/summary with { team, from, to }
  * - Otherwise, falls back to Supabase fetch from weekly_reports (may be constrained by RLS),
  *   and shows inline guidance if access is blocked or insufficient.
- * Redirects to TeamSelector if no team is selected.
  */
 const ManagerReports = () => {
-  const { team, teamLoading } = useAuth();
-  const location = useLocation();
-
   const supabase = getSupabase();
   const { addToast } = useToast();
   const [loading, setLoading] = React.useState(false);
@@ -30,8 +24,8 @@ const ManagerReports = () => {
   const [rows, setRows] = React.useState([]);
   const [summary, setSummary] = React.useState(null);
 
-  // Filters (teamFilter defaults to selected team once loaded)
-  const [teamFilter, setTeamFilter] = React.useState('');
+  // Filters
+  const [team, setTeam] = React.useState('');
   const [from, setFrom] = React.useState('');
   const [to, setTo] = React.useState('');
   const [limit, setLimit] = React.useState(50);
@@ -39,34 +33,17 @@ const ManagerReports = () => {
   const hasApi = Boolean(getApiBase());
   const authDisabled = isAuthDisabled();
 
-  // Initialize default date range to current month
-  React.useEffect(() => {
-    const now = new Date();
-    const start = new Date(now.getFullYear(), now.getMonth(), 1);
-    const end = new Date(now.getFullYear(), now.getMonth() + 1, 0);
-    const iso = (d) => d.toISOString().slice(0, 10);
-    setFrom(iso(start));
-    setTo(iso(end));
-  }, []);
-
-  // When team selection becomes available, set as default filter
-  React.useEffect(() => {
-    if (team?.id) {
-      setTeamFilter(team.id);
-    }
-  }, [team]);
-
   const fetchViaBackend = React.useCallback(async () => {
     const data = await apiGet('/manager/reports', {
       params: {
-        team: teamFilter || undefined,
+        team: team || undefined,
         from: from || undefined,
         to: to || undefined,
         limit,
       },
     });
     return Array.isArray(data) ? data : (data?.items || []);
-  }, [teamFilter, from, to, limit]);
+  }, [team, from, to, limit]);
 
   const fetchViaSupabase = React.useCallback(async () => {
     if (!supabase) {
@@ -114,7 +91,16 @@ const ManagerReports = () => {
     }
   }, [hasApi, fetchViaBackend, fetchViaSupabase, addToast]);
 
-  // Fetch reports when component mounts and whenever dependencies change
+  React.useEffect(() => {
+    // Default to current month range
+    const now = new Date();
+    const start = new Date(now.getFullYear(), now.getMonth(), 1);
+    const end = new Date(now.getFullYear(), now.getMonth() + 1, 0);
+    const iso = (d) => d.toISOString().slice(0, 10);
+    setFrom(iso(start));
+    setTo(iso(end));
+  }, []);
+
   React.useEffect(() => {
     fetchReports();
   }, [fetchReports]);
@@ -129,8 +115,7 @@ const ManagerReports = () => {
   const truncate = (t, n = 140) => {
     const s = String(t || '').trim();
     return s.length > n ? `${s.slice(0, n)}…` : s;
-  };
-
+    };
   const onGenerateSummary = async () => {
     setAiLoading(true);
     setError(null);
@@ -142,7 +127,7 @@ const ManagerReports = () => {
         );
       }
       const res = await apiPost('/manager/ai/summary', {
-        team: teamFilter || null,
+        team: team || null,
         from: from || null,
         to: to || null,
       });
@@ -159,23 +144,10 @@ const ManagerReports = () => {
     }
   };
 
-  // Conditional returns AFTER hooks are declared keeps hooks ordering consistent
-  if (teamLoading) {
-    return (
-      <div className="card">
-        <div className="helper" aria-busy="true">Loading…</div>
-      </div>
-    );
-  }
-
-  if (!team) {
-    return <Navigate to="/select-team" replace state={{ from: location }} />;
-  }
-
   return (
     <>
       <div className="page-title" style={{ marginBottom: 8 }}>
-        <h1>Team Reports · {team?.name || team?.id}</h1>
+        <h1>Team Reports</h1>
         <span className="helper">Manager view with filters and AI summary</span>
         {authDisabled && (
           <span
@@ -199,16 +171,12 @@ const ManagerReports = () => {
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, minmax(120px, 1fr)) auto', gap: 8 }}>
           <div>
             <label className="helper" htmlFor="team">Team</label>
-            <input
-              id="team"
-              className="textarea"
-              style={{ minHeight: 'auto' }}
-              type="text"
-              value={teamFilter}
-              onChange={(e) => setTeamFilter(e.target.value)}
-              placeholder="Team ID"
-              title="Using selected team by default"
-            />
+            <select id="team" className="textarea" value={team} onChange={(e) => setTeam(e.target.value)}>
+              <option value="">All</option>
+              <option value="alpha">Alpha</option>
+              <option value="beta">Beta</option>
+              <option value="gamma">Gamma</option>
+            </select>
           </div>
           <div>
             <label className="helper" htmlFor="from">From</label>
